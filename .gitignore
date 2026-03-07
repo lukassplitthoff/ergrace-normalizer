@@ -136,3 +136,13 @@ Thumbs.db
 # Project specific
 *.png
 !examples/*.png
+
+# latex
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.log
+*.gz
+
+.claude/settings.local.json

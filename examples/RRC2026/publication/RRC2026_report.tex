@@ -1,0 +1,514 @@
+% RRC2026_report.tex — Performance analysis of the Råda Rowing Challenge 2026 mixed relay
+% Compile: pdflatex RRC2026_report.tex (run twice for correct cross-references)
+% Figures: run generate_figures.py first to produce figures/results.pdf
+
+\documentclass[twocolumn, 10pt]{article}
+
+% ── Encoding & fonts ─────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}          % Times-like font for body and math
+\usepackage{microtype}         % Microtypographic refinements
+
+% ── Layout ───────────────────────────────────────────────────────────────────
+\usepackage[a4paper,
+            top=2.5cm, bottom=2.5cm,
+            left=1.5cm, right=1.5cm,
+            columnsep=0.7cm]{geometry}
+
+% ── Math & science ───────────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{siunitx}
+\sisetup{separate-uncertainty=true,
+         per-mode=symbol,
+         range-phrase=\text{--}}
+
+% ── Tables & figures ─────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\captionsetup{font=small, labelfont=bf}
+
+% ── Plots (inline power curve) ───────────────────────────────────────────────
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.16}
+
+% ── Layout helpers ───────────────────────────────────────────────────────────
+\usepackage{parskip}
+\setlength{\parskip}{4pt}
+
+% ── Section formatting (Roman numerals, Physics-journal style) ────────────────
+\usepackage{titlesec}
+\renewcommand{\thesection}{\Roman{section}}
+\titleformat{\section}{\normalfont\bfseries\centering}{\thesection.}{0.5em}{\MakeUppercase}
+\titleformat{\subsection}{\normalfont\itshape}{\thesubsection.}{0.5em}{}
+
+% ── Abstract heading ─────────────────────────────────────────────────────────
+\renewcommand{\abstractname}{}
+
+% ── Hyperref LAST (must follow all other packages) ───────────────────────────
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue}
+
+% ──────────────────────────────────────────────────────────────────────────────
+
+\title{\textbf{On the normalization of team performance in mixed rowing relays}}
+
+\author{Lukas Johannes Splitthoff\textsuperscript{1,2},
+        Johan Lysemark\textsuperscript{2},
+        Oscar Gyllensten\textsuperscript{2}\\[4pt]
+        \small\textsuperscript{1}MC2, Chalmers University of Technology, G{\"o}teborg, Sweden\\
+        \small\textsuperscript{2}M{\"o}lndals Roddklubb, M{\"o}lndal, Sweden}
+
+\date{7 March 2026}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+% Title + abstract span full page width in the two-column layout
+\twocolumn[
+  \maketitle
+  \begin{abstract}
+  \noindent
+  We present a method for normalizing the results of a mixed-gender
+  indoor-rowing relay competition.
+  The R{\aa}da Rowing Challenge 2026 involved ten five-person relay teams with
+  different gender compositions, making direct comparison of raw distances
+  problematic.
+  We introduce a power-based normalization scheme in which each team's average
+  power output is compared to a composition-weighted reference derived from
+  world indoor-rowing records.
+  We show that this approach is physically better motivated than a linear
+  time-based normalization, because rowing performance scales as the cube of
+  the rowing velocity.
+  The method is applied to the competition results, and we discuss how the
+  ranking differs from a naive distance ranking.
+  \end{abstract}
+  \vspace{1em}
+]
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Introduction}
+
+The R{\aa}da Rowing Challenge (RRC) is an indoor rowing competition organized
+by M{\"o}lndals Roddklubb, held annually at R{\aa}daRum in M{\"o}lnlycke,
+Sweden.
+The 2026 edition took place on 7~March 2026 and included individual events as
+well as a 30-minute mixed-relay format~\cite{MRKweb2026}.
+In the relay, each team consists of five rowers who take turns on a Concept2
+RowErg ergometer; the combined distance covered by all five during the
+30-minute window is the team's result.
+
+Ten teams from clubs across the Gothenburg region entered the relay:
+Chalmers Roddklubb (two teams), J{\"o}nk{\"o}pings Rodds{\"a}llskap (two teams),
+Halmstads Roddklubb, M{\"o}lndals Roddklubb (two teams), G{\"o}teborgs
+Roddklubb, R{\aa}da Crew, and CTH-GU.
+Team compositions ranged from all-female (G{\"o}teborgs Roddklubb) to
+four-men-one-woman (Chalmers Roddklubb -- Team~2), reflecting the mixed nature
+of the competition.
+
+Because men and women differ systematically in their power output on the
+ergometer, a simple comparison of total relay distances would favour teams
+with more male rowers.
+To enable a fair ranking across different gender compositions, we develop a
+normalization procedure described in the following sections.
+Section~\ref{sec:formula} introduces the ergometer power formula.
+Section~\ref{sec:records} summarizes relevant world records and the
+performance gap between genders.
+Section~\ref{sec:normalization} presents two normalization approaches and
+argues for power-based normalization.
+Section~\ref{sec:results} reports the competition results.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{The Ergometer Power Formula}
+\label{sec:formula}
+
+\subsection{Derivation}
+
+The Concept2 ergometer flywheel decelerates between drive phases due to
+air resistance.
+The drag force scales quadratically with the flywheel angular velocity,
+which is proportional to the handle velocity $v$ of the rower.
+Since power equals force times velocity, the average power delivered to
+the flywheel is
+\begin{equation}
+  P = c \, v^{3},
+  \label{eq:power}
+\end{equation}
+where $v = d/T$ is the average rowing velocity (distance $d$ in metres,
+time $T$ in seconds) and $c$ is the flywheel drag constant.
+For the Concept2 RowErg~\cite{Concept2manual},
+\begin{equation}
+  c = \SI{2.8}{\watt\second\cubed\per\metre\cubed}.
+  \label{eq:constant}
+\end{equation}
+Equation~\eqref{eq:power} can equivalently be expressed using the
+\emph{500-metre split time} $t_{500}$, the time to row \SI{500}{m}
+at the current average pace:
+\begin{equation}
+  P = 2.8\left(\frac{500}{t_{500}}\right)^{\!3},
+  \qquad
+  t_{500} = \frac{500\,T}{d}.
+  \label{eq:power_split}
+\end{equation}
+A faster split (smaller $t_{500}$) gives higher power, as physically expected.
+For example, the men's reference pace (5000\,m in 939\,s) corresponds to
+$t_{500} = 500 \times 939 / 5000 \approx 94$\,s (split 1:34\,min).
+
+\subsection{Power curve}
+
+Figure~\ref{fig:power_curve} shows $P$ as a function of $t_{500}$
+over the range typical for competitive indoor rowing.
+The strong nonlinearity -- power grows as the \emph{cube} of
+velocity -- is the central motivation for using power rather than
+velocity or split time as the performance metric.
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+        width=\columnwidth,
+        height=6.2cm,
+        xlabel={500\,m split $t_{500}$ [mm:ss]},
+        ylabel={Power $P$ [W]},
+        xmin=70, xmax=155,
+        ymin=0, ymax=700,
+        xtick={70,80,90,100,110,120,130,140,150},
+        xticklabels={1:10,1:20,1:30,1:40,1:50,2:00,2:10,2:20,2:30},
+        x tick label style={rotate=40, anchor=east, font=\footnotesize},
+        yticklabel style={font=\footnotesize},
+        grid=major,
+        grid style={dotted, gray!60},
+        tick style={draw=none},
+        clip=false,
+      ]
+      %% Main power curve  P = 2.8*(500/x)^3
+      \addplot[thick, black!80, domain=80:153, samples=300]
+        {2.8*(500/x)^3};
+
+      %% ── Men 5K (reference, dashed blue) t500=93.9 s → 423 W ──────────────
+      \addplot[dashed, blue!80, very thick]
+        coordinates {(93.9,0)(93.9,422.8)};
+      \addplot[dashed, blue!80, very thick]
+        coordinates {(70,422.8)(93.9,422.8)};
+      %% label on vertical line
+      \node[font=\scriptsize, blue!80, anchor=north, rotate=90]
+        at (axis cs:88.0,160) {Men 5K};
+      \node[font=\scriptsize, blue!80, anchor=south west]
+        at (axis cs:71,430) {423\,W};
+
+      %% ── Women 5K (reference, dashed red) t500=110.1 s → 262 W ────────────
+      \addplot[dashed, red!80, very thick]
+        coordinates {(110.1,0)(110.1,262.2)};
+      \addplot[dashed, red!80, very thick]
+        coordinates {(70,262.2)(110.1,262.2)};
+      \node[font=\scriptsize, red!80, anchor=north, rotate=90]
+        at (axis cs:111.5,130) {Women 5K};
+      \node[font=\scriptsize, red!80, anchor=south west]
+        at (axis cs:71,270) {262\,W};
+
+      %% ── Men 2K WR (dotted blue) t500=83.7 s → 597 W ──────────────────────
+      \addplot[dotted, blue!70, thick]
+        coordinates {(83.7,0)(83.7,597)};
+      \addplot[dotted, blue!70, thick]
+        coordinates {(70,597)(83.7,597)};
+      \node[font=\scriptsize, blue!70, anchor=south west]
+        at (axis cs:84,600) {Men 2K (597\,W)};
+
+      %% ── Women 2K WR (dotted red) t500=95.3 s → 405 W ─────────────────────
+      \addplot[dotted, red!70, thick]
+        coordinates {(95.3,0)(95.3,405)};
+      \addplot[dotted, red!70, thick]
+        coordinates {(70,405)(95.3,405)};
+      \node[font=\scriptsize, red!70, anchor=west]
+        at (axis cs:97,410) {Women 2K (405\,W)};
+
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Ergometer power vs.\ 500\,m split time,
+    Eq.~\eqref{eq:power_split}.
+    Dashed lines: reference performance levels used in this study
+    (5000\,m world records from the 2026~WRVIC).
+    Dotted lines: 2000\,m world records
+    (men: O.\ Zeidler 2026; women: B.\ Mooney 2021).}
+  \label{fig:power_curve}
+\end{figure}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Reference Performance}
+\label{sec:records}
+
+\subsection{World indoor rowing records}
+
+Table~\ref{tab:records} lists world indoor rowing records for 2000\,m
+and 5000\,m on the static Concept2 RowErg, as reported at the 2026 World
+Rowing Virtual Indoor Championships~\cite{WorldRowingWRVIC2026}.
+
+\begin{table}[ht]
+  \centering
+  \caption{World indoor rowing records (Concept2 RowErg, open category).
+           Power computed via Eq.~\eqref{eq:power_split}.}
+  \label{tab:records}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}llcrl@{}}
+    \toprule
+    Dist. & Gender & Time & $P$ [W] & Athlete (year)\\
+    \midrule
+    2000\,m & Men   & 5:34.7  & 597 & O.\ Zeidler (2026)  \\
+    2000\,m & Women & 6:21.1  & 405 & B.\ Mooney (2021)   \\
+    5000\,m & Men   & 15:39   & 423 & WRVIC (2026)        \\
+    5000\,m & Women & 16:49.4 & 341 & G.\ Rowe (2026)     \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Performance spread and the gender gap}
+
+At the competitive level, 2000\,m times for male club and national-team
+rowers typically span 5:30--6:10, corresponding to
+\SIrange{470}{635}{\watt}.
+Female athletes at comparable relative levels achieve
+6:10--7:00 (\SIrange{270}{395}{\watt}).
+The spread is broadly similar in relative terms for both groups, yet
+the absolute power gap between the two reference levels in
+Table~\ref{tab:records} is about \SI{61}{\percent}
+(423\,W vs.\ 262\,W for 5000\,m).
+In split time, the same gap is only \SI{17}{\percent}
+(1:33.9 vs.\ 1:50.1 per 500\,m).
+This asymmetry is a direct consequence of the cubic relation $P \propto v^3$:
+a moderate advantage in speed translates into a much larger advantage in
+power.
+As a result, the gender composition of a relay team has a strong systematic
+effect on the expected power output, motivating the normalization
+approach described in the next section.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Normalization}
+\label{sec:normalization}
+
+Let team $k$ comprise $n_m$ male and $n_f$ female rowers,
+with $n = n_m + n_f$.
+During the 30-minute relay ($T = 1800$\,s) the team covers a combined
+distance $D_k$, giving an average team power
+\begin{equation}
+  P_k^{\mathrm{act}} = 2.8\left(\frac{D_k}{T}\right)^{\!3}.
+  \label{eq:team_power}
+\end{equation}
+
+\subsection{Time-based normalization}
+
+A natural first approach is to compare $D_k$ to the distance a reference
+team of the same composition would cover at the gender-specific reference
+pace.
+Defining $v_m = d_{\mathrm{ref}}/T_m^{\mathrm{ref}}$ and
+$v_f = d_{\mathrm{ref}}/T_f^{\mathrm{ref}}$ as the male and female
+reference velocities, the expected relay distance is
+\begin{equation}
+  D_k^{\mathrm{ref,t}} = \frac{T}{n}(n_m v_m + n_f v_f),
+  \label{eq:time_ref}
+\end{equation}
+and the time-normalized score $S_k^{(t)} = D_k / D_k^{\mathrm{ref,t}}$
+is dimensionless and equals 1.0 for a team rowing exactly at the
+composition-weighted reference pace.
+
+\subsection{Power-based normalization}
+
+We propose instead to compare power outputs directly.
+The reference power for team $k$ is the composition-weighted mean of
+individual reference powers:
+\begin{equation}
+  P_k^{\mathrm{ref}} = \frac{n_m P_m + n_f P_f}{n},
+  \label{eq:pref}
+\end{equation}
+where $P_m$ and $P_f$ are the male and female reference powers
+(from Table~\ref{tab:records}, rows 3--4).
+The power-normalized score is
+\begin{equation}
+  S_k = \frac{P_k^{\mathrm{act}}}{P_k^{\mathrm{ref}}}.
+  \label{eq:score}
+\end{equation}
+
+\subsection{Why power normalization is preferred}
+
+The two methods treat the nonlinearity of $P \propto v^3$ differently.
+Time normalization is linear in velocity: it credits a rower who rows
+\SI{10}{\percent} above reference with a \SI{10}{\percent} bonus,
+regardless of the absolute speed difference.
+Power normalization is cubic: the same \SI{10}{\percent} velocity bonus
+corresponds to $(1.10)^3 - 1 \approx \SI{33}{\percent}$ more power,
+and this full advantage is reflected in the score.
+
+More importantly, the Concept2 ergometer \emph{measures} power -- it is the
+physically native quantity of the instrument.
+Averaging power across team members, Eq.~\eqref{eq:pref}, correctly
+weights each rower's physical contribution.
+By contrast, averaging reference velocities and then converting to a
+reference distance, Eq.~\eqref{eq:time_ref}, applies a linear average
+where the true relationship is cubic, underestimating the advantage of
+having high-power rowers on the team.
+
+Power-based normalization also has a natural interpretation:
+a score of $S_k = 1.0$ means the team delivered exactly the power
+expected for their composition; $S_k > 1$ means they exceeded the
+reference, and $S_k < 1$ that they fell short.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Results}
+\label{sec:results}
+
+\subsection{Reference parameters}
+
+We use the 5000\,m world records from the 2026~WRVIC
+(Table~\ref{tab:records}, rows 3--4) as reference performance:
+\begin{align}
+  T_m^{\mathrm{ref}} &= \SI{939}{\second}\;(15{:}39),
+    \quad P_m = \SI{423}{\watt}, \\
+  T_f^{\mathrm{ref}} &= \SI{1101}{\second}\;(18{:}21),
+    \quad P_f = \SI{262}{\watt}.
+\end{align}
+The 5000\,m distance is approximately the total relay contribution
+of one team member over the 30-minute race at a competitive club pace.
+
+\subsection{Race results}
+
+Table~\ref{tab:results} presents the ten teams, their compositions,
+the total relay distances, reference and actual power, and normalized
+scores computed via Eqs.~\eqref{eq:team_power}--\eqref{eq:score}.
+Figure~\ref{fig:results} visualizes the same data.
+
+\begin{table*}[p]
+  \centering
+  \caption{RRC~2026 relay results ranked by normalized score.
+    $n_m$/$n_f$: male/female rowers.
+    $P_{\mathrm{ref}}$: composition-weighted reference power,
+    Eq.~\eqref{eq:pref}.
+    $P_{\mathrm{act}}$: team average power, Eq.~\eqref{eq:team_power}.
+    Score~$= P_{\mathrm{act}}/P_{\mathrm{ref}}$.}
+  \label{tab:results}
+  \begin{tabular}{@{}rlccrrrr@{}}
+    \toprule
+    Rank & Team & Lane & Comp. & Dist.\ [km] &
+          $P_{\mathrm{ref}}$ [W] & $P_{\mathrm{act}}$ [W] & Score \\
+    \midrule
+    1  & Chalmers Roddklubb -- Team 1         &  8 & 2M/3F & 9.268 & 326 & 382 & 1.171 \\
+    2  & G{\"o}teborgs Roddklubb              &  7 & 0M/5F & 8.575 & 262 & 303 & 1.155 \\
+    3  & CTH-GU                               & 10 & 3M/2F & 9.511 & 359 & 413 & 1.152 \\
+    4  & J{\"o}nk{\"o}pings Rodds.\ -- Team 2 &  5 & 2M/3F & 9.021 & 326 & 353 & 1.080 \\
+    5  & M{\"o}lndals Roddklubb -- Team 1     &  4 & 2M/3F & 8.744 & 326 & 321 & 0.983 \\
+    6  & M{\"o}lndals Roddklubb -- Team 2     &  6 & 1M/4F & 8.439 & 294 & 289 & 0.981 \\
+    7  & Chalmers Roddklubb -- Team 2         &  1 & 4M/1F & 9.095 & 391 & 361 & 0.924 \\
+    8  & J{\"o}nk{\"o}pings Rodds.\ -- Team 1 &  2 & 3M/2F & 8.660 & 359 & 312 & 0.870 \\
+    9  & R{\aa}da Crew                        &  9 & 3M/2F & 7.733 & 359 & 222 & 0.620 \\
+    10 & Halmstads Roddklubb                  &  3 & 2M/3F & 6.956 & 326 & 162 & 0.495 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{figure*}[p]
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/results.pdf}
+  \caption{RRC~2026 relay results.
+    Bars (left axis): total relay distance per team.
+    Markers (right axis): normalized score.
+    Teams ordered by score (best to worst, left to right).
+    The dashed line marks score\,$= 1.0$ (reference performance level).
+    Generate this figure by running \texttt{generate\_figures.py}.}
+  \label{fig:results}
+\end{figure*}
+
+\subsection{Discussion}
+
+The power-normalized ranking differs substantially from a raw-distance
+ranking for several teams.
+CTH-GU covered the greatest total distance (9.511\,km) yet ranks third,
+held back by a relatively strong expected composition (3M/2F,
+$P_{\mathrm{ref}} = 359$\,W).
+Conversely, G{\"o}teborgs Roddklubb -- the only all-female team --
+covered only 8.575\,km but ranks second overall, having substantially
+exceeded their (lowest possible) reference power of 262\,W.
+
+Chalmers Roddklubb -- Team~2 illustrates the penalty for a heavy-male
+composition: despite covering 9.095\,km (fourth largest raw distance),
+they rank seventh after normalization, because their four-man composition
+sets a demanding reference bar of 391\,W.
+
+The cubic power law amplifies small pace differences into large score
+differences.
+The rank-1 team (score 1.171) averaged approximately 1:39.5/500\,m
+against a reference of 1:44.2/500\,m -- a pace advantage of only
+$\sim$5\%, yet a power advantage of $\sim$17\%.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+
+We have presented a power-based normalization method for mixed-gender
+indoor rowing relay competitions.
+The fundamental argument is that rowing power scales as the cube of
+velocity, Eq.~\eqref{eq:power}, so small velocity differences
+between genders translate into large power differences.
+Normalizing by power rather than by distance or time therefore provides
+a physically motivated and instrument-native measure of relative team
+performance.
+
+Applied to the RRC~2026, the normalized ranking differs substantially
+from the raw-distance ranking for several teams.
+The correction is particularly significant for all-female and
+predominantly male teams, illustrating the importance of accounting
+for gender composition in mixed relay events.
+
+The normalization algorithm is released as the open-source Python package
+\texttt{ergrace}~\cite{ergrace} and can be applied to future editions
+of the competition or similar mixed-relay formats.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\section*{Data Availability}
+
+The race data, normalization code, and the source of this paper are openly
+available at
+\url{https://github.com/lukassplitthoff/ergrace-normalizer}.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\section*{Acknowledgements}
+
+The authors thank all members of M{\"o}lndals Roddklubb for their support
+during the R{\aa}da Rowing Challenge.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\section*{Author Contributions}
+
+LJS wrote the paper and developed the power normalization.
+JL assisted with data acquisition and analysis.
+OG acquired the data and supervised the project.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+
+\bibitem{MRKweb2026}
+  M{\"o}lndals Roddklubb,
+  ``R{\aa}da Rowing Challenge -- 7 mars 2026,''
+  \url{https://www.mrk.nu/rada-rowing-challlenge-7-mars-2026/},
+  accessed March 2026.
+
+\bibitem{Concept2manual}
+  Concept2,
+  ``RowErg Performance Monitor -- pace/power calculator,''
+  \url{https://www.concept2.com/indoor-rowers/training/calculators},
+  accessed March 2026.
+
+\bibitem{WorldRowingWRVIC2026}
+  World Rowing,
+  ``Records fall and champions crowned during 2026 World Rowing Virtual
+  Indoor Championships, presented by Concept2,''
+  \url{https://worldrowing.com/2026/02/28/records-fall-and-champions-crowned-%
+during-2026-world-rowing-virtual-indoor-championships-presented-by-concept2/},
+  28 February 2026.
+
+\bibitem{ergrace}
+  L.\ J.\ Splitthoff,
+  \textit{ergrace}: ERG Power Normalizer for rowing relay competitions,
+  \url{https://github.com/lukassplitthoff/ergrace-normalizer},
+  2026.
+
+\end{thebibliography}
+
+\end{document}
