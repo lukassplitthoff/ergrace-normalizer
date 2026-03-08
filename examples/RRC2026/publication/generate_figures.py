@@ -16,23 +16,26 @@ import matplotlib
 matplotlib.use("Agg")           # headless rendering
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
 
 # ── Output directory ──────────────────────────────────────────────────────────
 os.makedirs("figures", exist_ok=True)
 
 # ── Race data (corrected team compositions) ───────────────────────────────────
-# Reference: 5000 m world records, WRVIC 2026
-REF_TIME_MEN_S   = 15 * 60 + 39   # 939 s  → 1:33.9 / 500 m
-REF_TIME_WOMEN_S = 18 * 60 + 21   # 1101 s → 1:50.1 / 500 m
-REF_DIST_M       = 5000
-T_RACE           = 1800            # 30 min
+# Reference: 2000 m world records (Concept2 WR database)
+#   Men:   O. Zeidler 5:34.7 → 597 W
+#   Women: B. Mooney  6:21.1 → 405 W
+REF_TIME_MEN_S   = 5 * 60 + 34.7   # 334.7 s → 1:23.7 / 500 m
+REF_TIME_WOMEN_S = 6 * 60 + 21.1   # 381.1 s → 1:35.3 / 500 m
+REF_DIST_M       = 2000
+T_RACE           = 1800             # 30 min
 
 def power(dist_m, time_s):
     """P = 2.8 * (d/T)^3  [W]"""
     return 2.8 * (dist_m / time_s) ** 3
 
-P_MEN   = power(REF_DIST_M, REF_TIME_MEN_S)    # ≈ 423 W
-P_WOMEN = power(REF_DIST_M, REF_TIME_WOMEN_S)  # ≈ 262 W
+P_MEN   = power(REF_DIST_M, REF_TIME_MEN_S)    # ≈ 597 W
+P_WOMEN = power(REF_DIST_M, REF_TIME_WOMEN_S)  # ≈ 405 W
 
 TEAMS = [
     # (short_label, lane, n_men, n_women, distance_m)
@@ -119,13 +122,17 @@ ax2.axhline(1.0, color="gray", linestyle=":", linewidth=1.0, zorder=1)
 # Score annotations above markers
 for xi, s in zip(x, scores):
     offset = 0.04
-    ax2.text(xi, s + offset, f"{s:.2f}", ha="center", va="bottom",
-             fontsize=9, fontweight="bold", color=RED, zorder=6)
+    txt = ax2.text(xi, s + offset, f"{s:.3f}", ha="center", va="bottom",
+                   fontsize=9, fontweight="bold", color=RED, zorder=6)
+    txt.set_path_effects([
+        pe.withStroke(linewidth=2.5, foreground="white"),
+        pe.Normal(),
+    ])
 
 ax2.set_ylabel("Score ($P_{\\mathrm{act}} / P_{\\mathrm{ref}}$)",
                color=RED, fontsize=12, fontweight="bold")
 ax2.tick_params(axis="y", labelcolor=RED, labelsize=10)
-ax2.set_ylim(0, 1.50)
+ax2.set_ylim(0, 1.05)
 ax2.spines["top"].set_visible(False)
 
 # Legend

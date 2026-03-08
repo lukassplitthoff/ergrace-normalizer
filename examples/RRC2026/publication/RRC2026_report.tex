@@ -52,13 +52,14 @@
 
 % ──────────────────────────────────────────────────────────────────────────────
 
-\title{\textbf{On the normalization of team performance in mixed rowing relays}}
+\title{\textbf{Power-Based Normalization of Team Performance in Mixed Indoor Rowing Relays}}
 
 \author{Lukas Johannes Splitthoff\textsuperscript{1,2},
         Johan Lysemark\textsuperscript{2},
         Oscar Gyllensten\textsuperscript{2}\\[4pt]
-        \small\textsuperscript{1}MC2, Chalmers University of Technology, G{\"o}teborg, Sweden\\
-        \small\textsuperscript{2}M{\"o}lndals Roddklubb, M{\"o}lndal, Sweden}
+        \small\textsuperscript{1}Department of Microtechnology and Nanoscience (MC2),
+        Chalmers University of Technology, Kemiv{\"a}gen 9, SE-412 58 G{\"o}teborg, Sweden\\
+        \small\textsuperscript{2}M{\"o}lndals Roddklubb, R{\aa}dav{\"a}gen 38, SE-431 36 M{\"o}lndal, Sweden}
 
 \date{7 March 2026}
 
@@ -70,8 +71,8 @@
   \maketitle
   \begin{abstract}
   \noindent
-  We present a method for normalizing the results of a mixed-gender
-  indoor-rowing relay competition.
+  We present a novel method for normalizing the results of a mixed-gender
+  indoor-rowing relay competition based on power as performance quantifier.
   The R{\aa}da Rowing Challenge 2026 involved ten five-person relay teams with
   different gender compositions, making direct comparison of raw distances
   problematic.
@@ -91,8 +92,8 @@
 \section{Introduction}
 
 The R{\aa}da Rowing Challenge (RRC) is an indoor rowing competition organized
-by M{\"o}lndals Roddklubb, held annually at R{\aa}daRum in M{\"o}lnlycke,
-Sweden.
+by M{\"o}lndals Roddklubb~\cite{MRKhomepage}, held annually at R{\aa}daRum
+in M{\"o}lnlycke, Sweden.
 The 2026 edition took place on 7~March 2026 and included individual events as
 well as a 30-minute mixed-relay format~\cite{MRKweb2026}.
 In the relay, each team consists of five rowers who take turns on a Concept2
@@ -130,7 +131,7 @@ air resistance.
 The drag force scales quadratically with the flywheel angular velocity,
 which is proportional to the handle velocity $v$ of the rower.
 Since power equals force times velocity, the average power delivered to
-the flywheel is
+the flywheel is~\cite{Tipler2008}
 \begin{equation}
   P = c \, v^{3},
   \label{eq:power}
@@ -142,18 +143,27 @@ For the Concept2 RowErg~\cite{Concept2manual},
   c = \SI{2.8}{\watt\second\cubed\per\metre\cubed}.
   \label{eq:constant}
 \end{equation}
+This value is Concept2's published calibration constant, determined
+empirically from flywheel drag measurements~\cite{Concept2manual}.
+Physically, $c$ encodes the aerodynamic properties of the flywheel and
+its housing; the monitor's internal algorithm normalises for damper-setting
+variations, rendering $c$ effectively universal across machines.
+The exact machine-to-machine variation of $c$ is not publicly documented;
+however, any systematic offset in $c$ cancels identically in the
+normalized score $S_k = P_k^{\mathrm{act}}/P_k^{\mathrm{ref}}$
+(Eq.~\eqref{eq:score}), provided all teams row on comparable machines.
 Equation~\eqref{eq:power} can equivalently be expressed using the
 \emph{500-metre split time} $t_{500}$, the time to row \SI{500}{m}
 at the current average pace:
 \begin{equation}
-  P = 2.8\left(\frac{500}{t_{500}}\right)^{\!3},
+  P = 2.8\left(\frac{500\,\mathrm{m}}{t_{500}}\right)^{\!3},
   \qquad
-  t_{500} = \frac{500\,T}{d}.
+  t_{500} = \frac{500\,\mathrm{m} \cdot T}{d}.
   \label{eq:power_split}
 \end{equation}
 A faster split (smaller $t_{500}$) gives higher power, as physically expected.
-For example, the men's reference pace (5000\,m in 939\,s) corresponds to
-$t_{500} = 500 \times 939 / 5000 \approx 94$\,s (split 1:34\,min).
+For example, the men's reference pace (2000\,m in 334.7\,s) corresponds to
+$t_{500} = 500 \times 334.7 / 2000 \approx 84$\,s (split 1:24\,min).
 
 \subsection{Power curve}
 
@@ -173,6 +183,7 @@ velocity or split time as the performance metric.
         ylabel={Power $P$ [W]},
         xmin=70, xmax=155,
         ymin=0, ymax=700,
+        ytick={100,200,300,400,500,600},
         xtick={70,80,90,100,110,120,130,140,150},
         xticklabels={1:10,1:20,1:30,1:40,1:50,2:00,2:10,2:20,2:30},
         x tick label style={rotate=40, anchor=east, font=\footnotesize},
@@ -186,51 +197,50 @@ velocity or split time as the performance metric.
       \addplot[thick, black!80, domain=80:153, samples=300]
         {2.8*(500/x)^3};
 
-      %% ── Men 5K (reference, dashed blue) t500=93.9 s → 423 W ──────────────
+      %% ── Men 2K WR (reference, dashed blue) t500=83.7 s → 597 W ─────────────
       \addplot[dashed, blue!80, very thick]
-        coordinates {(93.9,0)(93.9,422.8)};
-      \addplot[dashed, blue!80, very thick]
-        coordinates {(70,422.8)(93.9,422.8)};
-      %% label on vertical line
-      \node[font=\scriptsize, blue!80, anchor=north, rotate=90]
-        at (axis cs:88.0,160) {Men 5K};
-      \node[font=\scriptsize, blue!80, anchor=south west]
-        at (axis cs:71,430) {423\,W};
-
-      %% ── Women 5K (reference, dashed red) t500=110.1 s → 262 W ────────────
-      \addplot[dashed, red!80, very thick]
-        coordinates {(110.1,0)(110.1,262.2)};
-      \addplot[dashed, red!80, very thick]
-        coordinates {(70,262.2)(110.1,262.2)};
-      \node[font=\scriptsize, red!80, anchor=north, rotate=90]
-        at (axis cs:111.5,130) {Women 5K};
-      \node[font=\scriptsize, red!80, anchor=south west]
-        at (axis cs:71,270) {262\,W};
-
-      %% ── Men 2K WR (dotted blue) t500=83.7 s → 597 W ──────────────────────
-      \addplot[dotted, blue!70, thick]
         coordinates {(83.7,0)(83.7,597)};
-      \addplot[dotted, blue!70, thick]
+      \addplot[dashed, blue!80, very thick]
         coordinates {(70,597)(83.7,597)};
-      \node[font=\scriptsize, blue!70, anchor=south west]
-        at (axis cs:84,600) {Men 2K (597\,W)};
+      \node[font=\scriptsize, blue!80, anchor=north, rotate=90]
+        at (axis cs:78.5,250) {Men 2K};
+      \node[font=\scriptsize, blue!80, anchor=south west]
+        at (axis cs:71,604) {597\,W};
 
-      %% ── Women 2K WR (dotted red) t500=95.3 s → 405 W ─────────────────────
-      \addplot[dotted, red!70, thick]
+      %% ── Women 2K WR (reference, dashed red) t500=95.3 s → 405 W ──────────
+      \addplot[dashed, red!80, very thick]
         coordinates {(95.3,0)(95.3,405)};
-      \addplot[dotted, red!70, thick]
+      \addplot[dashed, red!80, very thick]
         coordinates {(70,405)(95.3,405)};
+      \node[font=\scriptsize, red!80, anchor=north, rotate=90]
+        at (axis cs:96.5,160) {Women 2K};
+      \node[font=\scriptsize, red!80, anchor=south west]
+        at (axis cs:71,412) {405\,W};
+
+      %% ── Men 5K WR (dotted blue) t500=89.4 s → 490 W ──────────────────────
+      \addplot[dotted, blue!70, thick]
+        coordinates {(89.4,0)(89.4,490)};
+      \addplot[dotted, blue!70, thick]
+        coordinates {(70,490)(89.4,490)};
+      \node[font=\scriptsize, blue!70, anchor=south west]
+        at (axis cs:90,494) {Men 5K (490\,W)};
+
+      %% ── Women 5K WR (dotted red) t500=100.9 s → 341 W ────────────────────
+      \addplot[dotted, red!70, thick]
+        coordinates {(100.9,0)(100.9,341)};
+      \addplot[dotted, red!70, thick]
+        coordinates {(70,341)(100.9,341)};
       \node[font=\scriptsize, red!70, anchor=west]
-        at (axis cs:97,410) {Women 2K (405\,W)};
+        at (axis cs:102,346) {Women 5K (341\,W)};
 
     \end{axis}
   \end{tikzpicture}
   \caption{Ergometer power vs.\ 500\,m split time,
     Eq.~\eqref{eq:power_split}.
     Dashed lines: reference performance levels used in this study
-    (5000\,m world records from the 2026~WRVIC).
-    Dotted lines: 2000\,m world records
-    (men: O.\ Zeidler 2026; women: B.\ Mooney 2021).}
+    (2000\,m world records).
+    Dotted lines: 5000\,m world records
+    (men: T.\ George 2022; women: G.\ Rowe 2026).}
   \label{fig:power_curve}
 \end{figure}
 
@@ -240,47 +250,98 @@ velocity or split time as the performance metric.
 
 \subsection{World indoor rowing records}
 
-Table~\ref{tab:records} lists world indoor rowing records for 2000\,m
-and 5000\,m on the static Concept2 RowErg, as reported at the 2026 World
-Rowing Virtual Indoor Championships~\cite{WorldRowingWRVIC2026}.
+Table~\ref{tab:records} lists indoor rowing records for 500\,m,
+1000\,m, 2000\,m, and 5000\,m on the static Concept2 RowErg.
+The 500\,m, 2000\,m, and 5000\,m entries are current world records from
+the Concept2 records database~\cite{Concept2records}.
+The 1000\,m entries are event-winner times from the 2026 World Rowing
+Virtual Indoor Championships (WRVIC~2026)~\cite{WorldRowingWRVIC2026},
+which featured that distance; official world-record status for the
+women's 1000\,m entry has not been confirmed.
 
 \begin{table}[ht]
   \centering
-  \caption{World indoor rowing records (Concept2 RowErg, open category).
-           Power computed via Eq.~\eqref{eq:power_split}.}
+  \caption{Indoor rowing records (Concept2 RowErg, open category).
+           Power computed via Eq.~\eqref{eq:power_split}.
+           500\,m, 2000\,m, and 5000\,m entries are current world records~\cite{Concept2records}.
+           1000\,m entries are WRVIC~2026 event-winner times~\cite{WorldRowingWRVIC2026}
+           (world-record status for the women's 1000\,m unconfirmed).}
   \label{tab:records}
   \setlength{\tabcolsep}{4pt}
   \begin{tabular}{@{}llcrl@{}}
     \toprule
-    Dist. & Gender & Time & $P$ [W] & Athlete (year)\\
+    Dist. & Gender & Time [m:s] & $P$ [W] & Athlete (year)\\
     \midrule
-    2000\,m & Men   & 5:34.7  & 597 & O.\ Zeidler (2026)  \\
-    2000\,m & Women & 6:21.1  & 405 & B.\ Mooney (2021)   \\
-    5000\,m & Men   & 15:39   & 423 & WRVIC (2026)        \\
-    5000\,m & Women & 16:49.4 & 341 & G.\ Rowe (2026)     \\
+    500\,m  & Men   & 1:09.8  & 1027 & P.\ Clapp (2024)    \\
+    500\,m  & Women & 1:24.5  &  580 & O.\ Buryak (2017)   \\
+    1000\,m & Men   & 2:38.0  &  710 & A.\ Panizza (2026)  \\
+    1000\,m & Women & 3:09.4  &  412 & A.\ Ader (2026)     \\
+    2000\,m & Men   & 5:34.7  &  597 & O.\ Zeidler (2026)  \\
+    2000\,m & Women & 6:21.1  &  405 & B.\ Mooney (2021)   \\
+    5000\,m & Men   & 14:53.9 &  490 & T.\ George (2022)   \\
+    5000\,m & Women & 16:49.4 &  341 & G.\ Rowe (2026)     \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \subsection{Performance spread and the gender gap}
 
-At the competitive level, 2000\,m times for male club and national-team
-rowers typically span 5:30--6:10, corresponding to
-\SIrange{470}{635}{\watt}.
-Female athletes at comparable relative levels achieve
-6:10--7:00 (\SIrange{270}{395}{\watt}).
-The spread is broadly similar in relative terms for both groups, yet
-the absolute power gap between the two reference levels in
-Table~\ref{tab:records} is about \SI{61}{\percent}
-(423\,W vs.\ 262\,W for 5000\,m).
-In split time, the same gap is only \SI{17}{\percent}
-(1:33.9 vs.\ 1:50.1 per 500\,m).
+To characterise the performance spread, we define the top-athlete range
+as world-record power down to \SI{80}{\percent} of that value.
+For men this gives \SIrange{478}{597}{\watt} (2000\,m times 5:35--5:59);
+for women the corresponding range is \SIrange{324}{405}{\watt}
+(6:21--6:50).
+The absolute power gap between the two reference levels in
+Table~\ref{tab:records} is about \SI{47}{\percent}
+(597\,W vs.\ 405\,W for 2000\,m).
+In split time, the same gap is only \SI{14}{\percent}
+(1:23.7 vs.\ 1:35.3 per 500\,m).
 This asymmetry is a direct consequence of the cubic relation $P \propto v^3$:
 a moderate advantage in speed translates into a much larger advantage in
 power.
 As a result, the gender composition of a relay team has a strong systematic
 effect on the expected power output, motivating the normalization
 approach described in the next section.
+
+\subsection{Choice of reference distance}
+\label{sec:refdistance}
+
+The normalization requires a choice of reference distance (and associated
+world record).
+In a 30-minute relay with five rowers, each member accumulates roughly
+6 minutes of rowing, but not as a continuous effort: teams typically swap
+every \SI{30}{\second} or so, meaning each rower completes approximately
+12 sprint bursts of \SI{30}{\second}, covering a total distance of
+well under \SI{2000}{m}.
+The 2000\,m world record, corresponding to an approximately 6-minute
+all-out effort, therefore matches both the total accumulated distance
+per rower and the overall duration of each rower's contribution to the
+relay most closely.
+We therefore adopt the 2000\,m world record as the normalization
+reference throughout (Section~\ref{sec:results}), and discuss the
+sensitivity to this choice below.
+
+To quantify the sensitivity to this choice, we compute the male/female
+reference-power ratio at all four available distances
+(Table~\ref{tab:records}):
+\begin{align}
+  \frac{P_m^{500}}{P_f^{500}}   &= \frac{1027}{580}  \approx 1.77, \\
+  \frac{P_m^{1\text{k}}}{P_f^{1\text{k}}} &= \frac{710}{412}   \approx 1.72, \\
+  \frac{P_m^{2\text{k}}}{P_f^{2\text{k}}} &= \frac{597}{405}   \approx 1.47, \\
+  \frac{P_m^{5\text{k}}}{P_f^{5\text{k}}} &= \frac{490}{341}   \approx 1.44.
+\end{align}
+The male/female power gap decreases monotonically with distance, reflecting
+the greater male advantage in short, anaerobic efforts relative to longer
+aerobic exercise.
+Choosing a shorter-distance reference therefore sets a more demanding
+standard for male rowers (and conversely favours female-heavy teams),
+while a longer-distance reference narrows the gap.
+Notably, the 2000\,m and 5000\,m ratios (1.47 and 1.44) are very close
+to each other -- a relative difference of only $\sim$2\% -- whereas the
+step from 1000\,m to 2000\,m is considerably larger ($\sim$16\%).
+This suggests that the normalization is relatively insensitive to the
+choice between 2000\,m and 5000\,m references, which is reassuring given
+the ambiguity in the appropriate reference distance for the relay format.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Normalization}
@@ -321,7 +382,7 @@ individual reference powers:
   \label{eq:pref}
 \end{equation}
 where $P_m$ and $P_f$ are the male and female reference powers
-(from Table~\ref{tab:records}, rows 3--4).
+(from Table~\ref{tab:records}, rows 5--6).
 The power-normalized score is
 \begin{equation}
   S_k = \frac{P_k^{\mathrm{act}}}{P_k^{\mathrm{ref}}}.
@@ -358,16 +419,17 @@ reference, and $S_k < 1$ that they fell short.
 
 \subsection{Reference parameters}
 
-We use the 5000\,m world records from the 2026~WRVIC
-(Table~\ref{tab:records}, rows 3--4) as reference performance:
+We use the 2000\,m world records~\cite{Concept2records}
+(Table~\ref{tab:records}, rows 5--6) as reference performance:
 \begin{align}
-  T_m^{\mathrm{ref}} &= \SI{939}{\second}\;(15{:}39),
-    \quad P_m = \SI{423}{\watt}, \\
-  T_f^{\mathrm{ref}} &= \SI{1101}{\second}\;(18{:}21),
-    \quad P_f = \SI{262}{\watt}.
+  T_m^{\mathrm{ref}} &= \SI{334.7}{\second}\;(5{:}34.7),
+    \quad P_m = \SI{597}{\watt}, \\
+  T_f^{\mathrm{ref}} &= \SI{381.1}{\second}\;(6{:}21.1),
+    \quad P_f = \SI{405}{\watt}.
 \end{align}
-The 5000\,m distance is approximately the total relay contribution
-of one team member over the 30-minute race at a competitive club pace.
+The 2000\,m distance matches the total distance accumulated by each
+relay member (~6 minutes at competitive club pace, see
+Section~\ref{sec:refdistance}).
 
 \subsection{Race results}
 
@@ -390,16 +452,16 @@ Figure~\ref{fig:results} visualizes the same data.
     Rank & Team & Lane & Comp. & Dist.\ [km] &
           $P_{\mathrm{ref}}$ [W] & $P_{\mathrm{act}}$ [W] & Score \\
     \midrule
-    1  & Chalmers Roddklubb -- Team 1         &  8 & 2M/3F & 9.268 & 326 & 382 & 1.171 \\
-    2  & G{\"o}teborgs Roddklubb              &  7 & 0M/5F & 8.575 & 262 & 303 & 1.155 \\
-    3  & CTH-GU                               & 10 & 3M/2F & 9.511 & 359 & 413 & 1.152 \\
-    4  & J{\"o}nk{\"o}pings Rodds.\ -- Team 2 &  5 & 2M/3F & 9.021 & 326 & 353 & 1.080 \\
-    5  & M{\"o}lndals Roddklubb -- Team 1     &  4 & 2M/3F & 8.744 & 326 & 321 & 0.983 \\
-    6  & M{\"o}lndals Roddklubb -- Team 2     &  6 & 1M/4F & 8.439 & 294 & 289 & 0.981 \\
-    7  & Chalmers Roddklubb -- Team 2         &  1 & 4M/1F & 9.095 & 391 & 361 & 0.924 \\
-    8  & J{\"o}nk{\"o}pings Rodds.\ -- Team 1 &  2 & 3M/2F & 8.660 & 359 & 312 & 0.870 \\
-    9  & R{\aa}da Crew                        &  9 & 3M/2F & 7.733 & 359 & 222 & 0.620 \\
-    10 & Halmstads Roddklubb                  &  3 & 2M/3F & 6.956 & 326 & 162 & 0.495 \\
+    1  & CTH-GU                               & 10 & 3M/2F & 9.511 & 520 & 413 & 0.794 \\
+    2  & Chalmers Roddklubb -- Team 1         &  8 & 2M/3F & 9.268 & 482 & 382 & 0.793 \\
+    3  & G{\"o}teborgs Roddklubb              &  7 & 0M/5F & 8.575 & 405 & 303 & 0.748 \\
+    4  & J{\"o}nk{\"o}pings Rodds.\ -- Team 2 &  5 & 2M/3F & 9.021 & 482 & 353 & 0.733 \\
+    5  & M{\"o}lndals Roddklubb -- Team 1     &  4 & 2M/3F & 8.744 & 482 & 321 & 0.666 \\
+    6  & M{\"o}lndals Roddklubb -- Team 2     &  6 & 1M/4F & 8.439 & 443 & 289 & 0.652 \\
+    7  & Chalmers Roddklubb -- Team 2         &  1 & 4M/1F & 9.095 & 559 & 361 & 0.646 \\
+    8  & J{\"o}nk{\"o}pings Rodds.\ -- Team 1 &  2 & 3M/2F & 8.660 & 520 & 312 & 0.600 \\
+    9  & R{\aa}da Crew                        &  9 & 3M/2F & 7.733 & 520 & 222 & 0.427 \\
+    10 & Halmstads Roddklubb                  &  3 & 2M/3F & 6.956 & 482 & 162 & 0.336 \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -409,39 +471,47 @@ Figure~\ref{fig:results} visualizes the same data.
   \includegraphics[width=0.88\textwidth]{figures/results.pdf}
   \caption{RRC~2026 relay results.
     Bars (left axis): total relay distance per team.
-    Markers (right axis): normalized score.
+    Markers (right axis): normalized score (fraction of 2000\,m
+    world-record power for the team composition).
     Teams ordered by score (best to worst, left to right).
-    The dashed line marks score\,$= 1.0$ (reference performance level).
     Generate this figure by running \texttt{generate\_figures.py}.}
   \label{fig:results}
 \end{figure*}
 
 \subsection{Discussion}
 
+All scores are below 1.0, as expected when using world records as the
+reference: no relay team rows at the pace of the current world-record
+holder.
+The scores therefore represent the fraction of world-record power
+output delivered per rower for the given team composition.
+
 The power-normalized ranking differs substantially from a raw-distance
 ranking for several teams.
-CTH-GU covered the greatest total distance (9.511\,km) yet ranks third,
-held back by a relatively strong expected composition (3M/2F,
-$P_{\mathrm{ref}} = 359$\,W).
-Conversely, G{\"o}teborgs Roddklubb -- the only all-female team --
-covered only 8.575\,km but ranks second overall, having substantially
-exceeded their (lowest possible) reference power of 262\,W.
+CTH-GU covered the greatest total distance (9.511\,km) and also ranks
+first, combining high output with a three-man composition
+($P_{\mathrm{ref}} = 520$\,W).
+Chalmers Roddklubb -- Team~1 ranks second with a two-man composition
+($P_{\mathrm{ref}} = 482$\,W) and a slightly lower absolute distance.
+G{\"o}teborgs Roddklubb -- the only all-female team -- ranks third,
+having delivered 74.8\% of world-record power against the lowest
+reference ($P_{\mathrm{ref}} = 405$\,W).
 
 Chalmers Roddklubb -- Team~2 illustrates the penalty for a heavy-male
 composition: despite covering 9.095\,km (fourth largest raw distance),
 they rank seventh after normalization, because their four-man composition
-sets a demanding reference bar of 391\,W.
+sets a demanding reference bar of 559\,W.
 
-The cubic power law amplifies small pace differences into large score
+The cubic power law amplifies pace differences into larger score
 differences.
-The rank-1 team (score 1.171) averaged approximately 1:39.5/500\,m
-against a reference of 1:44.2/500\,m -- a pace advantage of only
-$\sim$5\%, yet a power advantage of $\sim$17\%.
+The rank-1 team (score 0.794) averaged approximately 1:34.6 per 500\,m
+against a world-record reference of 1:27.7 per 500\,m -- a pace deficit
+of only $\sim$7\%, yet a power shortfall of $\sim$21\%.
 
 % ══════════════════════════════════════════════════════════════════════════════
-\section{Conclusion}
+\section{Conclusion and Outlook}
 
-We have presented a power-based normalization method for mixed-gender
+We have presented a novel power-based normalization method for mixed-gender
 indoor rowing relay competitions.
 The fundamental argument is that rowing power scales as the cube of
 velocity, Eq.~\eqref{eq:power}, so small velocity differences
@@ -460,18 +530,27 @@ The normalization algorithm is released as the open-source Python package
 \texttt{ergrace}~\cite{ergrace} and can be applied to future editions
 of the competition or similar mixed-relay formats.
 
+Our proposed method can be further extended and applied to different
+age and weight groups, including official handicap categories as defined
+by World Rowing~\cite{WorldRowingClasses}.
+Incorporating age-graded reference powers and lightweight classifications
+would allow fair comparison across an even broader range of team
+compositions, opening the approach to wider use in community and
+masters rowing events.
+
 % ──────────────────────────────────────────────────────────────────────────────
 \section*{Data Availability}
 
 The race data, normalization code, and the source of this paper are openly
-available at
-\url{https://github.com/lukassplitthoff/ergrace-normalizer}.
+available in the \texttt{ergrace} package repository~\cite{ergrace}.
 
 % ──────────────────────────────────────────────────────────────────────────────
 \section*{Acknowledgements}
 
 The authors thank all members of M{\"o}lndals Roddklubb for their support
 during the R{\aa}da Rowing Challenge.
+The authors also thank Henning G.A.\ Kirchberg and Thomas Gispert for
+fruitful discussions and constructive feedback on the manuscript.
 
 % ──────────────────────────────────────────────────────────────────────────────
 \section*{Author Contributions}
@@ -482,6 +561,11 @@ OG acquired the data and supervised the project.
 
 % ──────────────────────────────────────────────────────────────────────────────
 \begin{thebibliography}{9}
+
+\bibitem{MRKhomepage}
+  M{\"o}lndals Roddklubb,
+  \url{https://www.mrk.nu/},
+  accessed March 2026.
 
 \bibitem{MRKweb2026}
   M{\"o}lndals Roddklubb,
@@ -495,13 +579,29 @@ OG acquired the data and supervised the project.
   \url{https://www.concept2.com/indoor-rowers/training/calculators},
   accessed March 2026.
 
+\bibitem{Concept2records}
+  Concept2,
+  ``World Records,''
+  \url{https://www.concept2.com/indoor-rowers/racing/records/world},
+  accessed March 2026.
+
 \bibitem{WorldRowingWRVIC2026}
   World Rowing,
   ``Records fall and champions crowned during 2026 World Rowing Virtual
   Indoor Championships, presented by Concept2,''
-  \url{https://worldrowing.com/2026/02/28/records-fall-and-champions-crowned-%
-during-2026-world-rowing-virtual-indoor-championships-presented-by-concept2/},
+  \url{https://worldrowing.com/2026/02/28/records-fall-and-champions-crowned-during-2026-world-rowing-virtual-indoor-championships-presented-by-concept2/},
   28 February 2026.
+
+\bibitem{Tipler2008}
+  P.~A.\ Tipler and G.\ Mosca,
+  \textit{Physics for Scientists and Engineers}, 6th~ed.,
+  W.H.\ Freeman, New York, 2008.
+
+\bibitem{WorldRowingClasses}
+  World Rowing,
+  ``Rowing Events and Boat Classes,''
+  \url{https://worldrowing.com/rowing/events-boat-classes/},
+  accessed March 2026.
 
 \bibitem{ergrace}
   L.\ J.\ Splitthoff,
