@@ -152,6 +152,12 @@ The exact machine-to-machine variation of $c$ is not publicly documented;
 however, any systematic offset in $c$ cancels identically in the
 normalized score $S_k = P_k^{\mathrm{act}}/P_k^{\mathrm{ref}}$
 (Eq.~\eqref{eq:score}), provided all teams row on comparable machines.
+An independent validation study using force sensors found that the Concept2
+monitor underestimates absolute power by approximately \SI{25}{\watt}
+($\approx$7\%) at trained-rower intensities, with the offset being largely
+independent of power level~\cite{Boyas2006}; because it appears in both
+numerator and denominator of $S_k$, this systematic bias cancels in the
+normalized score.
 Equation~\eqref{eq:power} can equivalently be expressed using the
 \emph{500-metre split time} $t_{500}$, the time to row \SI{500}{m}
 at the current average pace:
@@ -213,7 +219,7 @@ velocity or split time as the performance metric.
       \addplot[dashed, red!80, very thick]
         coordinates {(70,405)(95.3,405)};
       \node[font=\scriptsize, red!80, anchor=north, rotate=90]
-        at (axis cs:96.5,160) {Women 2K};
+        at (axis cs:91,160) {Women 2K};
       \node[font=\scriptsize, red!80, anchor=south west]
         at (axis cs:71,412) {405\,W};
 
@@ -303,7 +309,7 @@ As a result, the gender composition of a relay team has a strong systematic
 effect on the expected power output, motivating the normalization
 approach described in the next section.
 
-\subsection{Choice of reference distance}
+\subsection{Power as performance measure}
 \label{sec:refdistance}
 
 The normalization requires a choice of reference distance (and associated
@@ -349,12 +355,14 @@ the ambiguity in the appropriate reference distance for the relay format.
 
 Let team $k$ comprise $n_m$ male and $n_f$ female rowers,
 with $n = n_m + n_f$.
-During the 30-minute relay ($T = 1800$\,s) the team covers a combined
+During the 30-minute relay ($T = 1800$\,s) the team covers a total
 distance $D_k$, giving an average team power
 \begin{equation}
   P_k^{\mathrm{act}} = 2.8\left(\frac{D_k}{T}\right)^{\!3}.
   \label{eq:team_power}
 \end{equation}
+To normalize this total distance we consider two approaches: a time-based
+and a power-based normalization.
 
 \subsection{Time-based normalization}
 
@@ -368,7 +376,11 @@ reference velocities, the expected relay distance is
   D_k^{\mathrm{ref,t}} = \frac{T}{n}(n_m v_m + n_f v_f),
   \label{eq:time_ref}
 \end{equation}
-and the time-normalized score $S_k^{(t)} = D_k / D_k^{\mathrm{ref,t}}$
+The time-normalized score
+\begin{equation}
+  S_k^{(t)} = \frac{D_k}{D_k^{\mathrm{ref,t}}}
+  \label{eq:score_time}
+\end{equation}
 is dimensionless and equals 1.0 for a team rowing exactly at the
 composition-weighted reference pace.
 
@@ -413,6 +425,61 @@ a score of $S_k = 1.0$ means the team delivered exactly the power
 expected for their composition; $S_k > 1$ means they exceeded the
 reference, and $S_k < 1$ that they fell short.
 
+Figure~\ref{fig:norm_comparison} illustrates how the reference performance
+depends on team composition and the choice of reference distance.
+Panels~(a) and~(b) show the composition-weighted reference time and power
+for all six possible compositions of a five-person team (5M/0W through
+0M/5W) across the four available record distances (500\,m, 1000\,m,
+2000\,m, 5000\,m).
+Reference times increase monotonically with distance (panel~a) and are
+nearly linear in the fraction of female rowers at each distance.
+Reference powers decrease monotonically with distance (panel~b), and the
+gap between the most male-heavy (5M/0W) and most female-heavy (0M/5W)
+compositions narrows as the distance grows: the male/female power ratio
+falls from 1.77 at 500\,m to 1.44 at 5000\,m, reflecting the greater
+male advantage in short anaerobic efforts.
+
+Importantly, the 2000\,m and 5000\,m reference powers lie very close to
+each other (ratio 1.47 vs.~1.44, a $\approx$2\% difference), whereas the
+step from 1000\,m to 2000\,m is $\approx$16\%.
+This insensitivity to the 2000\,m vs.\ 5000\,m choice is visible across
+all six compositions in panel~(b), and makes the 2000\,m selection robust.
+
+Panel~(c) shows both reference time and reference power at the chosen
+2000\,m distance as a function of team composition.
+Reference time varies nearly linearly from 5:34.7 (5M/0W) to 6:21.1
+(0M/5W), because time averaging is linear in the fraction of female
+rowers.
+Reference power, by contrast, decreases more steeply from 597\,W (5M/0W)
+down to a minimum of 370\,W for a 1M/4W team, then rises slightly to
+405\,W for the all-female 0M/5W team -- a direct consequence of the cubic
+relation between velocity and power: the all-female world record holder
+rows faster than the linear interpolation of mixed-team reference paces
+would predict, and this faster pace translates into a disproportionately
+higher reference power.
+This non-linearity is exactly what the power-based normalization captures,
+and what a time-based approach would miss.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/normalization_comparison.pdf}
+  \caption{Reference performance as a function of event distance and team
+    composition for all six possible five-person gender mixes.
+    (a)~Composition-weighted reference time $T_k^{\mathrm{ref}}$ vs.\
+    distance (log scale), showing the monotonic increase with distance
+    and with the fraction of female rowers.
+    (b)~Corresponding reference power $P_k^{\mathrm{ref}}$ vs.\ distance;
+    note the convergence of all compositions towards shorter distances and
+    the near-identical values at 2000\,m and 5000\,m.
+    (c)~Reference time (left axis, navy) and reference power (right axis,
+    red) at the chosen reference distance of 2000\,m, plotted against team
+    composition.
+    The non-monotonic dip in power at 1M/4W -- below the all-female value
+    -- reflects the cubic velocity-to-power conversion and motivates the
+    power-based normalisation.}
+  \label{fig:norm_comparison}
+\end{figure}
+
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Results}
 \label{sec:results}
@@ -420,13 +487,8 @@ reference, and $S_k < 1$ that they fell short.
 \subsection{Reference parameters}
 
 We use the 2000\,m world records~\cite{Concept2records}
-(Table~\ref{tab:records}, rows 5--6) as reference performance:
-\begin{align}
-  T_m^{\mathrm{ref}} &= \SI{334.7}{\second}\;(5{:}34.7),
-    \quad P_m = \SI{597}{\watt}, \\
-  T_f^{\mathrm{ref}} &= \SI{381.1}{\second}\;(6{:}21.1),
-    \quad P_f = \SI{405}{\watt}.
-\end{align}
+(Table~\ref{tab:records}, rows 5--6) as reference performance,
+giving $P_m = \SI{597}{\watt}$ and $P_f = \SI{405}{\watt}$.
 The 2000\,m distance matches the total distance accumulated by each
 relay member (~6 minutes at competitive club pace, see
 Section~\ref{sec:refdistance}).
@@ -485,6 +547,18 @@ reference: no relay team rows at the pace of the current world-record
 holder.
 The scores therefore represent the fraction of world-record power
 output delivered per rower for the given team composition.
+
+Across all ten teams, the mean total distance was
+\SI{8.60 \pm 0.76}{\km} (mean $\pm$ sample std.\ dev., coefficient of
+variation 8.8\%).
+The mean normalized score was 0.640, meaning that teams collectively
+produced approximately 64\% of the world-record power expected for their
+composition.
+Despite the comparatively small spread in raw distances, the score range
+is much wider (0.336--0.794), because the cubic power law amplifies pace
+differences into larger performance gaps: a team covering 550\,m less
+than average (one standard deviation) corresponds to a pace deficit of
+only $\approx$3\%, yet a power shortfall of $\approx$9\%.
 
 The power-normalized ranking differs substantially from a raw-distance
 ranking for several teams.
@@ -608,6 +682,13 @@ OG acquired the data and supervised the project.
   \textit{ergrace}: ERG Power Normalizer for rowing relay competitions,
   \url{https://github.com/lukassplitthoff/ergrace-normalizer},
   2026.
+
+\bibitem{Boyas2006}
+  S.\ Boyas, A.\ Nordez, C.\ Cornu, and A.\ Gu{\'e}vel,
+  ``Power Responses of a Rowing Ergometer: Mechanical Sensors
+  vs.\ Concept2\textregistered{} Measurement System,''
+  \textit{Int.\ J.\ Sports Med.}, vol.~27, no.~10, pp.~830--833, 2006.
+  DOI: 10.1055/s-2006-923774.
 
 \end{thebibliography}
 

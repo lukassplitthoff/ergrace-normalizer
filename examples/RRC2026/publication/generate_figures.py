@@ -156,3 +156,115 @@ outpath = os.path.join("figures", "results.pdf")
 fig.savefig(outpath, dpi=300, bbox_inches="tight", facecolor="white")
 print(f"Saved: {outpath}")
 plt.close(fig)
+
+# ── Figure 3: Normalization comparison ────────────────────────────────────────
+# World-record reference times per distance (seconds)
+DISTANCES = [500, 1000, 2000, 5000]
+T_MEN_REF   = [69.8,  158.0, 334.7, 893.9]   # seconds
+T_WOMEN_REF = [84.5,  189.4, 381.1, 1009.4]
+P_MEN_REF   = [1027,  710,   597,   490]       # watts
+P_WOMEN_REF = [580,   412,   405,   341]
+
+COMPOSITIONS = [
+    (5, 0, "5M/0W"),
+    (4, 1, "4M/1W"),
+    (3, 2, "3M/2W"),
+    (2, 3, "2M/3W"),
+    (1, 4, "1M/4W"),
+    (0, 5, "0M/5W"),
+]
+N = 5
+
+# Build reference time and power arrays per composition
+ref_times  = []   # shape (6, 4)
+ref_powers = []   # shape (6, 4)
+for nm, nf, _ in COMPOSITIONS:
+    t_row = [(nm * T_MEN_REF[i] + nf * T_WOMEN_REF[i]) / N for i in range(4)]
+    p_row = [(nm * P_MEN_REF[i] + nf * P_WOMEN_REF[i]) / N for i in range(4)]
+    ref_times.append(t_row)
+    ref_powers.append(p_row)
+
+# 2000 m slice (index 2)
+times_2k  = [row[2] for row in ref_times]
+powers_2k = [row[2] for row in ref_powers]
+comp_labels = [c[2] for c in COMPOSITIONS]
+
+# Sequential colour map: blue → red across 6 compositions
+import matplotlib.cm as cm
+colors = [cm.RdYlBu_r(i / (len(COMPOSITIONS) - 1)) for i in range(len(COMPOSITIONS))]
+
+fig3, axes = plt.subplots(3, 1, figsize=(5, 11))
+fig3.patch.set_facecolor("white")
+for ax in axes:
+    ax.set_facecolor("white")
+
+# ── (a) Reference time vs distance ──────────────────────────────────────────
+ax_a = axes[0]
+for idx, (nm, nf, label) in enumerate(COMPOSITIONS):
+    ax_a.plot(DISTANCES, ref_times[idx], marker="o", color=colors[idx],
+              label=label, linewidth=1.8, markersize=5)
+ax_a.set_xscale("log")
+ax_a.set_xticks(DISTANCES)
+ax_a.set_xticklabels([str(d) for d in DISTANCES])
+ax_a.set_xlabel("Distance [m]", fontsize=10)
+ax_a.set_ylabel("Reference time [s]", fontsize=10)
+ax_a.set_title("(a) Reference time", fontsize=10, fontweight="bold")
+ax_a.legend(fontsize=8, loc="upper left", frameon=False)
+ax_a.grid(True, linestyle=":", color="gray", alpha=0.5)
+ax_a.spines["top"].set_visible(False)
+ax_a.spines["right"].set_visible(False)
+
+# ── (b) Reference power vs distance ─────────────────────────────────────────
+ax_b = axes[1]
+for idx, (nm, nf, label) in enumerate(COMPOSITIONS):
+    ax_b.plot(DISTANCES, ref_powers[idx], marker="o", color=colors[idx],
+              label=label, linewidth=1.8, markersize=5)
+ax_b.set_xscale("log")
+ax_b.set_xticks(DISTANCES)
+ax_b.set_xticklabels([str(d) for d in DISTANCES])
+ax_b.set_xlabel("Distance [m]", fontsize=10)
+ax_b.set_ylabel("Reference power [W]", fontsize=10)
+ax_b.set_title("(b) Reference power", fontsize=10, fontweight="bold")
+ax_b.legend(fontsize=8, loc="upper right", frameon=False)
+ax_b.grid(True, linestyle=":", color="gray", alpha=0.5)
+ax_b.spines["top"].set_visible(False)
+ax_b.spines["right"].set_visible(False)
+
+# ── (c) Reference time and power vs composition at 2000 m ───────────────────
+ax_c  = axes[2]
+ax_c2 = ax_c.twinx()
+x_idx = range(len(COMPOSITIONS))
+
+LINE_T = "#1A3A6B"  # navy — time
+LINE_P = "#C0392B"  # red  — power
+
+ax_c.plot(x_idx, times_2k, marker="s", color=LINE_T,
+          linewidth=1.8, markersize=6, label="Ref. time")
+ax_c2.plot(x_idx, powers_2k, marker="^", color=LINE_P,
+           linewidth=1.8, markersize=6, label="Ref. power")
+
+ax_c.set_xticks(list(x_idx))
+ax_c.set_xticklabels(comp_labels, fontsize=9)
+ax_c.set_xlabel("Team composition", fontsize=10)
+ax_c.set_ylabel("Reference time [s]", color=LINE_T, fontsize=10, fontweight="bold")
+ax_c.tick_params(axis="y", labelcolor=LINE_T)
+ax_c2.set_ylabel("Reference power [W]", color=LINE_P, fontsize=10, fontweight="bold")
+ax_c2.tick_params(axis="y", labelcolor=LINE_P)
+ax_c.set_title("(c) 2000\u202fm reference values vs. composition", fontsize=10, fontweight="bold")
+ax_c.grid(True, linestyle=":", color="gray", alpha=0.5)
+ax_c.spines["top"].set_visible(False)
+ax_c2.spines["top"].set_visible(False)
+
+# Combined legend
+from matplotlib.lines import Line2D
+handles = [
+    Line2D([0], [0], color=LINE_T, marker="s", markersize=6, linewidth=1.8, label="Ref. time"),
+    Line2D([0], [0], color=LINE_P, marker="^", markersize=6, linewidth=1.8, label="Ref. power"),
+]
+ax_c.legend(handles=handles, fontsize=8, loc="center left", frameon=False)
+
+fig3.tight_layout(pad=1.5)
+outpath3 = os.path.join("figures", "normalization_comparison.pdf")
+fig3.savefig(outpath3, dpi=300, bbox_inches="tight", facecolor="white")
+print(f"Saved: {outpath3}")
+plt.close(fig3)
