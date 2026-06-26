@@ -18,6 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/ergrace-normalizer",
     packages=find_packages(),
+    package_data={"ergrace": ["data/*.json"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",

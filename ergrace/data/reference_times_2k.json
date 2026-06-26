@@ -1,0 +1,25 @@
+{
+  "distance_m": 2000,
+  "description": "On-water 2 km reference times per boat class / gender / age category, used by HandicapRace to predict finish times and stagger starts. These are *boat* reference times (an 8+ is faster than a 1x), not static-erg scores. Values are coherent, plausible DEFAULTS intended to be edited to match your club/event. Times are 'M:SS' or 'M:SS.s'. Default baselines (senior male): 1x 6:40, 2x 6:10, 4x 5:45, 8+ 5:20; women approx +8% slower; junior approx +5% vs senior; master approx +8% vs senior.",
+  "categories": ["junior", "senior", "master"],
+  "genders": ["male", "female"],
+  "boat_classes": ["1x", "2x", "4x", "8+"],
+  "reference_times": {
+    "1x": {
+      "male":   {"junior": "7:00.0", "senior": "6:40.0", "master": "7:12.0"},
+      "female": {"junior": "7:33.6", "senior": "7:12.0", "master": "7:46.6"}
+    },
+    "2x": {
+      "male":   {"junior": "6:28.5", "senior": "6:10.0", "master": "6:39.6"},
+      "female": {"junior": "6:59.6", "senior": "6:39.6", "master": "7:11.6"}
+    },
+    "4x": {
+      "male":   {"junior": "6:02.3", "senior": "5:45.0", "master": "6:12.6"},
+      "female": {"junior": "6:31.2", "senior": "6:12.6", "master": "6:42.4"}
+    },
+    "8+": {
+      "male":   {"junior": "5:36.0", "senior": "5:20.0", "master": "5:45.6"},
+      "female": {"junior": "6:02.9", "senior": "5:45.6", "master": "6:13.2"}
+    }
+  }
+}

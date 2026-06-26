@@ -37,6 +37,12 @@ normalizer.print_results()
 # Create visualization
 normalizer.plot_results('team_comparison.png')
 
+# Create an animated reveal of the ranking, slowest team to fastest.
+# Writes cumulative PNG frames (frame_01.png ...) for click-through in
+# PowerPoint or for overlaying, plus a stitched GIF.
+normalizer.animate_results(save_dir='team_comparison_frames',
+                           gif_path='team_comparison.gif')
+
 # You can also get the results as a DataFrame for further analysis
 results_df = normalizer.get_results()
 print("\nTop 3 teams by normalized score:")

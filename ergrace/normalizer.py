@@ -5,10 +5,11 @@ This module provides tools for comparing rowing ergometer team performance
 by normalizing results based on the gender composition of teams.
 """
 
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 
 class ERGNormalizer:
@@ -351,16 +352,24 @@ class ERGNormalizer:
         ax2.set_ylabel('Score', color=score_color,
                       fontsize=18, fontweight='bold')
         ax2.tick_params(axis='y', labelcolor=score_color)
-        ax2.set_ylim(0, 1.1)
+        ax2.set_ylim(0, max(1.1, df['Score'].max() * 1.15))
 
-        # Annotations for score
+        # Annotations for score (in score color so they stay legible against any
+        # background, including above the top marker where white text vanished)
         for i, row in df.iterrows():
             ax2.annotate(f'{row["Score"]:.2f}',
                         (row['Team'], row['Score']),
                         textcoords="offset points",
-                        xytext=(0, 12), ha='center',
-                        fontsize=16, fontweight='bold',
-                        color='white')
+                        xytext=(0, 13), ha='center',
+                        fontsize=15, fontweight='bold',
+                        color=score_color)
+
+        # Title + legend so the score (not bar height) reads as the ranking
+        ax1.set_title('Team performance: raw distance vs. composition-normalized score',
+                      fontsize=14, fontweight='bold', pad=15)
+        handles = [bars, line[0]]
+        labels = [h.get_label() for h in handles]
+        ax1.legend(handles, labels, loc='upper right', frameon=False, fontsize=12)
 
         ax1.grid(False)
         ax2.grid(False)
@@ -377,3 +386,161 @@ class ERGNormalizer:
             print(f"Plot saved to: {save_path}")
         else:
             plt.show()
+
+    def _draw_frame(self, ax1, ax2, df: pd.DataFrame, n_revealed: int,
+                    dist_color: str, score_color: str, transparent: bool,
+                    highlight_winner: bool) -> None:
+        """Render a single reveal frame onto the given axes.
+
+        Teams in ``df`` are assumed to be ordered slowest -> fastest. The first
+        ``n_revealed`` teams (left to right) are drawn; the rest are left blank
+        so axis limits stay fixed across frames (overlay/click-through safe).
+        """
+        teams = df['Team'].tolist()
+        x = np.arange(len(teams))
+        dist = df['Distance (km)'].to_numpy()
+        score = df['Score'].to_numpy()
+        winner_idx = len(teams) - 1  # highest score is last after slow->fast sort
+
+        if transparent:
+            ax1.patch.set_alpha(0.0)
+            ax2.patch.set_alpha(0.0)
+
+        # Distance bars (left axis) for revealed teams only
+        for i in range(n_revealed):
+            is_winner = highlight_winner and n_revealed > winner_idx and i == winner_idx
+            ax1.bar(x[i], dist[i], width=0.6, color=dist_color,
+                    alpha=0.95 if is_winner else 0.7,
+                    edgecolor=score_color if is_winner else 'none',
+                    linewidth=3 if is_winner else 0)
+
+        # Score markers + labels (right axis) for revealed teams only
+        for i in range(n_revealed):
+            ax2.plot(x[i], score[i], color=score_color, marker='o', markersize=11,
+                     ls='', markerfacecolor='white', markeredgewidth=2.5)
+            # Label in score color above the marker so it is always legible
+            ax2.annotate(f'{score[i]:.2f}', (x[i], score[i]),
+                         textcoords="offset points", xytext=(0, 13), ha='center',
+                         fontsize=15, fontweight='bold', color=score_color)
+
+        # Fixed axes, but only reveal tick labels for teams shown so far so the
+        # final ranking order is not spoiled in early frames.
+        ax1.set_xticks(x)
+        ax1.set_xticklabels([t if i < n_revealed else ''
+                             for i, t in enumerate(teams)])
+        plt.setp(ax1.get_xticklabels(), rotation=60, ha='right', fontsize=12)
+        ax1.set_xlim(-0.7, len(teams) - 0.3)
+        ax1.set_ylabel('Distance (km)', color=dist_color, fontsize=18, fontweight='bold')
+        ax1.tick_params(axis='y', labelcolor=dist_color)
+        ax1.set_ylim(0, dist.max() * 1.2)
+
+        ax2.set_ylabel('Score', color=score_color, fontsize=18, fontweight='bold')
+        ax2.tick_params(axis='y', labelcolor=score_color)
+        ax2.set_ylim(0, max(1.1, score.max() * 1.15))
+
+        ax1.grid(False)
+        ax2.grid(False)
+        for spine in list(ax1.spines.values()) + list(ax2.spines.values()):
+            spine.set_color('black')
+
+    def animate_results(self, save_dir: str = "animation_frames",
+                        gif_path: Optional[str] = "team_comparison.gif",
+                        figsize: tuple = (10, 6),
+                        dist_color: str = "#011C5F",
+                        score_color: str = "#BE0602",
+                        transparent: bool = True,
+                        dpi: int = 150,
+                        fps: float = 1.5,
+                        hold_final: int = 3,
+                        highlight_winner: bool = True) -> List[str]:
+        """
+        Generate an animated reveal of the ranking, slowest team to fastest.
+
+        Teams are placed left (lowest score) to right (highest score) with the
+        axes fixed across every frame, then revealed one at a time so the winner
+        appears last. Produces both:
+
+        * ``N`` cumulative PNG frames in ``save_dir`` (``frame_01.png`` ...) for
+          click-through in PowerPoint or for overlaying as layers, and
+        * an optional GIF stitched from those frames (requires Pillow).
+
+        Parameters
+        ----------
+        save_dir : str, optional
+            Directory for the PNG frames (created if needed). Default
+            "animation_frames".
+        gif_path : str, optional
+            Path for the assembled GIF. If None, no GIF is written (frames only).
+        figsize : tuple, optional
+            Figure size (width, height) in inches (default: (10, 6)).
+        dist_color, score_color : str, optional
+            Colors for the distance bars and score markers/labels.
+        transparent : bool, optional
+            Transparent background for the PNG frames (default: True). The GIF is
+            always composited on white (GIF has no real alpha channel).
+        dpi : int, optional
+            Resolution for the saved frames (default: 150).
+        fps : float, optional
+            Frames per second for the GIF (default: 1.5).
+        hold_final : int, optional
+            Extra repeats of the final full frame so the GIF pauses on the result
+            (default: 3).
+        highlight_winner : bool, optional
+            Outline the winning team's bar on the final frame (default: True).
+
+        Returns
+        -------
+        list of str
+            Paths of the PNG frames written, in reveal order.
+
+        Raises
+        ------
+        RuntimeError
+            If calculate_scores() hasn't been called yet.
+        """
+        if not self.results_calculated:
+            raise RuntimeError("Call calculate_scores() before animating")
+
+        # Order slowest -> fastest so the reveal builds toward the winner
+        df = self.get_results().sort_values('Score', ascending=True).reset_index(drop=True)
+        n_teams = len(df)
+
+        os.makedirs(save_dir, exist_ok=True)
+        frame_paths: List[str] = []
+
+        for k in range(1, n_teams + 1):
+            fig, ax1 = plt.subplots(figsize=figsize)
+            ax2 = ax1.twinx()
+            if transparent:
+                fig.patch.set_alpha(0.0)
+            self._draw_frame(ax1, ax2, df, k, dist_color, score_color,
+                             transparent, highlight_winner)
+            fig.tight_layout()
+            path = os.path.join(save_dir, f"frame_{k:02d}.png")
+            fig.savefig(path, transparent=transparent, dpi=dpi)
+            plt.close(fig)
+            frame_paths.append(path)
+
+        print(f"Wrote {n_teams} frames to: {save_dir}")
+
+        if gif_path:
+            try:
+                from PIL import Image
+            except ImportError:
+                print("Pillow not installed; skipping GIF "
+                      "(`pip install pillow`). PNG frames are still available.")
+                return frame_paths
+
+            def _on_white(p):
+                img = Image.open(p).convert("RGBA")
+                bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+                return Image.alpha_composite(bg, img).convert("RGB")
+
+            seq = [_on_white(p) for p in frame_paths]
+            seq += [seq[-1]] * max(0, hold_final)  # pause on the result
+            duration_ms = int(1000 / fps)
+            seq[0].save(gif_path, save_all=True, append_images=seq[1:],
+                        duration=duration_ms, loop=0)
+            print(f"GIF saved to: {gif_path}")
+
+        return frame_paths

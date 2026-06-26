@@ -219,6 +219,56 @@ Higher score means better performance relative to team composition
 
 In this example, Team_2 (all women) achieved the highest normalized score (0.912), meaning they performed closest to their expected capacity.
 
+## Handicap / Pursuit Race
+
+In addition to the erg-format normalizer above, the package can organize an
+**on-water handicap (pursuit) race**: boats of different **classes**
+(`1x`, `2x`, `4x`, `8+`), **genders** and **age categories**
+(`junior`, `senior`, `master`) race the same N km course and should all arrive
+at the same time. The slowest boat starts first; every other boat is held back
+by the difference between its expected finish time and the slowest boat's.
+
+Each crew's expected time is predicted **purely from reference data** — no
+per-crew test result is needed. The reference table lives in
+[ergrace/data/reference_times_2k.json](ergrace/data/reference_times_2k.json) and
+holds an on-water 2 km reference time for every boat class / gender / category.
+These are coherent, editable defaults — tune them for your club or event.
+
+### How the prediction works
+
+Time is **not** additive across the seats of a boat, but per-person **power**
+is. So a crew's reference is the *mean of the per-seat reference powers* (the
+same `P = 2.8 · (2000 / t)³` formula used by the erg normalizer), and the
+predicted N km time is `t = N·1000 · (2.8 / P)^(1/3)`. A homogeneous crew
+reproduces its boat's reference time exactly; a mixed crew is averaged in power
+space, which is the physically correct choice.
+
+The predicted times are used **only to set the start stagger**. If every crew
+rowed exactly to reference they would dead-heat — in the real race the first
+boat across the line wins, so the finish order on the water is the placing.
+
+### Quick start
+
+```python
+from ergrace import HandicapRace
+
+race = HandicapRace(distance_km=6)
+race.add_crew('Crew 1', '1x', [{'gender': 'male', 'category': 'senior'}])
+race.add_crew('Crew 2', '8+',
+              [{'gender': 'male',   'category': 'senior', 'count': 3},
+               {'gender': 'female', 'category': 'senior', 'count': 5}])
+
+race.calculate()
+race.print_results()           # power, predicted time, start offset, adjacent gap
+race.print_reference_table()   # the 2 km reference times used
+race.plot_results('handicap_race.png')  # staggered starts, common finish
+```
+
+Each crew reports two gaps: **Start Offset** (time held behind the first/slowest
+starter) and **Gap to Prev** (the start interval to the boat immediately in
+front of you). See [examples/handicap_race.py](examples/handicap_race.py) for a
+complete multi-boat example.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
