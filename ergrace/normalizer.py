@@ -39,10 +39,18 @@ class ERGNormalizer:
     >>> normalizer.print_results()
     """
 
-    def __init__(self, ref_power_men: float = 569.92, ref_power_women: float = 350.0):
-        """Initialize the ERGNormalizer with reference power values."""
+    def __init__(self, ref_power_men: float = 569.92, ref_power_women: float = 350.0,
+                 duration_s: float = 1200):
+        """Initialize the ERGNormalizer with reference power values.
+
+        Parameters
+        ----------
+        duration_s : float, optional
+            Race duration in seconds (default: 1200). Use 1800 for 30-minute races.
+        """
         self.ref_power_men = ref_power_men
         self.ref_power_women = ref_power_women
+        self.duration_s = duration_s
         self.teams = {}
         self.results_calculated = False
 
@@ -91,6 +99,25 @@ class ERGNormalizer:
         412.5
         """
         return 2.8 / (20 * 60 / distance_m) ** 3
+
+    @staticmethod
+    def distance_time2power(distance_m: float, duration_s: float) -> float:
+        """
+        Convert distance rowed in a given time to average power output.
+
+        Parameters
+        ----------
+        distance_m : float
+            Distance covered in meters
+        duration_s : float
+            Race duration in seconds
+
+        Returns
+        -------
+        float
+            Average power in Watts
+        """
+        return 2.8 / (duration_s / distance_m) ** 3
 
     def add_team(self, name: str, n_men: int, n_women: int, distance_20min_m: float) -> 'ERGNormalizer':
         """
@@ -190,7 +217,7 @@ class ERGNormalizer:
         """
         for name, data in self.teams.items():
             ref_pwr = self._calculate_ref_power(data['n_men'], data['n_women'])
-            actual_pwr = self.distance2power(data['distance_20min_m'])
+            actual_pwr = self.distance_time2power(data['distance_20min_m'], self.duration_s)
             score = actual_pwr / ref_pwr
 
             self.teams[name]['ref_pwr'] = ref_pwr
@@ -305,7 +332,8 @@ class ERGNormalizer:
         bars = ax1.bar(df['Team'], df['Distance (km)'],
                       color=dist_color, alpha=0.7,
                       label='Distance (km)', width=0.6)
-        ax1.set_xlabel('Team', fontsize=18, fontweight='bold', color='black')
+        ax1.set_xlabel('')
+        plt.setp(ax1.get_xticklabels(), rotation=60, ha='right', fontsize=12)
         ax1.set_ylabel('Distance (km)', color=dist_color,
                       fontsize=18, fontweight='bold')
         ax1.tick_params(axis='y', labelcolor=dist_color)
