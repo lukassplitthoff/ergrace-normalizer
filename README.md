@@ -243,9 +243,23 @@ predicted N km time is `t = N·1000 · (2.8 / P)^(1/3)`. A homogeneous crew
 reproduces its boat's reference time exactly; a mixed crew is averaged in power
 space, which is the physically correct choice.
 
+The model works in **per-seat equivalent power**, never total boat watts: the
+reference table stores a *per-seat* time per boat class, so the hull advantage
+of a bigger shell is already baked in. A crew is therefore the **mean** of its
+seat powers, not the sum — the reported "Seat Power (W)" is that mean per-seat
+value, compared seat-for-seat across boat classes.
+
 The predicted times are used **only to set the start stagger**. If every crew
 rowed exactly to reference they would dead-heat — in the real race the first
 boat across the line wins, so the finish order on the water is the placing.
+
+**Assumption — constant power over distance.** Each crew is assumed to hold its
+reference power for the whole course (finish time scales linearly with
+distance). Real athletes can't sustain 2 km power over, say, 6 km, so if the
+table holds true 2 km performances the *absolute* predicted times are
+optimistic — but the *handicap* stays fair as long as every crew is scaled from
+the same kind of reference. For accurate absolute times, populate the table with
+reference times at (or near) the race distance.
 
 ### Quick start
 

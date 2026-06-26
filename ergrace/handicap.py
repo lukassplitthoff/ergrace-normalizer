@@ -24,6 +24,25 @@ reused here::
     P = 2.8 * (2000 / t_2k) ** 3          # time  -> power
     t = distance_m * (2.8 / P) ** (1/3)   # power -> time
 
+Per-seat (not total) power
+--------------------------
+The model works entirely in **per-seat equivalent power**, never total boat
+watts. The reference table stores a *per-seat* reference time for each boat
+class, so the hull advantage of a bigger shell (an 8+ is faster than a 1x) is
+already baked into the reference. A crew is therefore the **mean** of its seat
+powers, not the **sum** -- using the sum would massively overestimate larger
+boats. Mixed crews are compared seat-for-seat within their own boat class.
+
+Distance / endurance assumption
+-------------------------------
+Each crew is assumed to hold its reference power for the whole course
+(constant power -> finish time scales linearly with distance). Real athletes
+cannot sustain 2 km power over, say, 6 km, so if the reference table holds true
+2 km performances the **absolute** predicted times will be optimistic. The
+*handicap* stays fair as long as every crew is scaled from the same kind of
+reference. For accurate absolute times, populate the table with reference times
+at (or near) the race distance instead of 2 km.
+
 What this tool decides (and does not)
 -------------------------------------
 The predicted times are used *only* to set the start stagger. If every crew
@@ -85,10 +104,13 @@ class HandicapRace:
         self.ref_distance_m = ref_doc.get("distance_m", 2000)
         # Raw "M:SS.s" strings (for the reference-times table output).
         self.ref_times_raw = ref_doc["reference_times"]
-        # Parsed to seconds for computation.
-        self.ref_times_s = {
+        # Precompute the per-seat reference *power* for every cell once (the
+        # table never changes), so race calculation is a plain lookup and the
+        # internal representation is clearly "the table is powers".
+        self.ref_powers = {
             boat: {
-                gender: {cat: self.parse_time(t) for cat, t in cats.items()}
+                gender: {cat: ERGNormalizer.time2power(self.parse_time(t))
+                         for cat, t in cats.items()}
                 for gender, cats in genders.items()
             }
             for boat, genders in self.ref_times_raw.items()
@@ -132,16 +154,21 @@ class HandicapRace:
     # Crew management
     # ------------------------------------------------------------------ #
     def _person_ref_power(self, boat_class: str, gender: str, category: str) -> float:
-        """Per-seat reference power for one rower of the given profile."""
+        """
+        Equivalent **per-seat** reference power for one rower of the given
+        profile (looked up from the table precomputed in ``__init__``).
+
+        This is per-seat power, NOT total crew power -- a crew averages these,
+        it does not sum them (see the module docstring).
+        """
         try:
-            t_ref = self.ref_times_s[boat_class][gender][category]
+            return self.ref_powers[boat_class][gender][category]
         except KeyError:
             raise ValueError(
                 f"No reference time for boat_class={boat_class!r}, "
                 f"gender={gender!r}, category={category!r}. "
                 f"Check {self.reference_path}."
             )
-        return ERGNormalizer.time2power(t_ref)
 
     def add_crew(self, name: str, boat_class: str,
                  members: List[Dict]) -> "HandicapRace":
@@ -228,10 +255,13 @@ class HandicapRace:
             boat = crew["boat_class"]
             powers = [self._person_ref_power(boat, s["gender"], s["category"])
                       for s in crew["seats"]]
-            crew_power = float(np.mean(powers))            # average in power space
-            predicted_time_s = self.power2time(crew_power, self.distance_m)
+            # Mean of per-seat powers (NOT the sum): the boat-class reference
+            # already encodes the hull advantage, so crews are compared
+            # seat-for-seat. Averaging happens in power space, not time space.
+            mean_seat_power = float(np.mean(powers))
+            predicted_time_s = self.power2time(mean_seat_power, self.distance_m)
 
-            crew["crew_power"] = crew_power
+            crew["mean_seat_power"] = mean_seat_power
             crew["predicted_time_s"] = predicted_time_s
             crew["composition"] = self._composition_label(crew["seats"])
 
@@ -265,8 +295,9 @@ class HandicapRace:
         """
         Results as a DataFrame, ordered by start (slowest crew first).
 
-        Columns: Start #, Crew, Boat, Composition, Crew Power (W),
-        Predicted Time, Start Offset (s), Gap to Prev (s).
+        Columns: Start #, Crew, Boat, Composition, Seat Power (W),
+        Predicted Time, Start Offset (s), Gap to Prev (s). "Seat Power" is the
+        mean per-seat reference power (not total crew watts).
         """
         if not self.results_calculated:
             raise RuntimeError("Call calculate() before getting results.")
@@ -278,7 +309,7 @@ class HandicapRace:
                 "Crew": r["name"],
                 "Boat": r["boat_class"],
                 "Composition": r["composition"],
-                "Crew Power (W)": round(r["crew_power"], 1),
+                "Seat Power (W)": round(r["mean_seat_power"], 1),
                 "Predicted Time": self.format_time(r["predicted_time_s"]),
                 "Start Offset (s)": round(r["start_offset_s"], 1),
                 "Gap to Prev (s)": round(r["gap_to_prev_s"], 1),
