@@ -134,11 +134,15 @@ class HandicapRace:
         return float(value)
 
     @staticmethod
-    def format_time(seconds: float) -> str:
-        """Format seconds as ``"M:SS.s"``."""
+    def format_time(seconds: float, decimals: int = 1) -> str:
+        """
+        Format seconds as ``"M:SS.s"`` (or ``"M:SS"`` with ``decimals=0``).
+        """
+        seconds = round(seconds, decimals)
         minutes = int(seconds // 60)
         secs = seconds - minutes * 60
-        return f"{minutes}:{secs:04.1f}"
+        width = 2 if decimals == 0 else 3 + decimals
+        return f"{minutes}:{secs:0{width}.{decimals}f}"
 
     @staticmethod
     def power2time(power: float, distance_m: float) -> float:
@@ -171,7 +175,8 @@ class HandicapRace:
             )
 
     def add_crew(self, name: str, boat_class: str,
-                 members: List[Dict]) -> "HandicapRace":
+                 members: List[Dict],
+                 boat_number: Optional[int] = None) -> "HandicapRace":
         """
         Add a crew (boat) to the race.
 
@@ -186,6 +191,10 @@ class HandicapRace:
             ``'gender'`` (male/female), ``'category'`` (junior/senior/master,
             default ``'senior'``) and ``'count'`` (default 1). The total count
             must equal the number of seats in ``boat_class``.
+        boat_number : int, optional
+            Bow / start-list number from the published race programme. Used only
+            for display and as an alternative sort order; it does not affect the
+            handicap calculation. Defaults to ``None``.
 
         Returns
         -------
@@ -209,17 +218,19 @@ class HandicapRace:
                 f"Crew {name!r}: {len(seats)} rower(s) given but a {boat_class} "
                 f"has {SEATS[boat_class]} seat(s).")
 
-        self.crews[name] = {"boat_class": boat_class, "seats": seats}
+        self.crews[name] = {"boat_class": boat_class, "seats": seats,
+                            "boat_number": boat_number}
         self.results_calculated = False
         return self
 
     def add_crews_from_list(self, crews: List[Dict]) -> "HandicapRace":
         """
         Bulk-add crews from a list of dicts with keys ``name``, ``boat_class``,
-        ``members`` (see :meth:`add_crew`).
+        ``members`` (see :meth:`add_crew`) and an optional ``boat_number``.
         """
         for c in crews:
-            self.add_crew(c["name"], c["boat_class"], c["members"])
+            self.add_crew(c["name"], c["boat_class"], c["members"],
+                          boat_number=c.get("boat_number"))
         return self
 
     @staticmethod
@@ -282,43 +293,76 @@ class HandicapRace:
         self.results_calculated = True
         return self
 
-    def _ordered_crews(self) -> List[Dict]:
-        """Crews as a list of dicts (incl. name), in start order (slowest first)."""
+    # Accepted values for the ``by`` sort argument of the output methods.
+    _SORT_KEYS = ("start", "boat_number")
+
+    def _ordered_crews(self, by: str = "start") -> List[Dict]:
+        """
+        Crews as a list of dicts (incl. name), sorted by ``by``.
+
+        ``by="start"`` (default) orders by handicap start order (slowest crew
+        first). ``by="boat_number"`` orders by the published boat number; crews
+        without a boat number are sorted last (then by start order).
+        """
+        if by not in self._SORT_KEYS:
+            raise ValueError(
+                f"Unknown sort key {by!r}; expected one of {list(self._SORT_KEYS)}.")
+
         rows = [dict(name=n, **c) for n, c in self.crews.items()]
-        rows.sort(key=lambda r: r["start_order"])
+        if by == "boat_number":
+            # None boat numbers sort last; ties fall back to start order.
+            rows.sort(key=lambda r: (r["boat_number"] is None,
+                                     r["boat_number"] if r["boat_number"] is not None
+                                     else 0,
+                                     r["start_order"]))
+        else:
+            rows.sort(key=lambda r: r["start_order"])
         return rows
 
     # ------------------------------------------------------------------ #
     # Outputs
     # ------------------------------------------------------------------ #
-    def get_results(self) -> pd.DataFrame:
+    def get_results(self, by: str = "start") -> pd.DataFrame:
         """
-        Results as a DataFrame, ordered by start (slowest crew first).
+        Results as a DataFrame.
 
-        Columns: Start #, Crew, Boat, Composition, Seat Power (W),
-        Predicted Time, Start Offset (s), Gap to Prev (s). "Seat Power" is the
-        mean per-seat reference power (not total crew watts).
+        Parameters
+        ----------
+        by : str, optional
+            Row order: ``"start"`` (default) for handicap start order (slowest
+            crew first), or ``"boat_number"`` for the published boat number.
+
+        Columns: Boat #, Start #, Crew, Boat, Composition, Seat Power (W),
+        Predicted Time, Start Offset (min:sec), Gap to Prev (s). "Seat Power" is
+        the mean per-seat reference power (not total crew watts).
         """
         if not self.results_calculated:
             raise RuntimeError("Call calculate() before getting results.")
 
         data = []
-        for r in self._ordered_crews():
+        for r in self._ordered_crews(by=by):
             data.append({
+                "Boat #": r["boat_number"] if r["boat_number"] is not None else "-",
                 "Start #": r["start_order"],
                 "Crew": r["name"],
                 "Boat": r["boat_class"],
                 "Composition": r["composition"],
                 "Seat Power (W)": round(r["mean_seat_power"], 1),
                 "Predicted Time": self.format_time(r["predicted_time_s"]),
-                "Start Offset (s)": round(r["start_offset_s"], 1),
+                "Start Offset (min:sec)": self.format_time(r["start_offset_s"],
+                                                           decimals=0),
                 "Gap to Prev (s)": round(r["gap_to_prev_s"], 1),
             })
         return pd.DataFrame(data)
 
-    def print_results(self) -> None:
-        """Print the formatted handicap-race table to the console."""
-        df = self.get_results()
+    def print_results(self, by: str = "start") -> None:
+        """
+        Print the formatted handicap-race table to the console.
+
+        ``by`` selects the row order: ``"start"`` (default) or ``"boat_number"``
+        (see :meth:`get_results`).
+        """
+        df = self.get_results(by=by)
         title = f"HANDICAP RACE - {self.distance_km:g} km".center(80)
         print("\n" + "=" * 80)
         print(title)
