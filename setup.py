@@ -39,6 +39,7 @@ setup(
             "black>=21.0",
             "flake8>=3.9",
         ],
+        "notebooks": ["jupyter", "pillow"],
     },
     include_package_data=True,
     zip_safe=False,

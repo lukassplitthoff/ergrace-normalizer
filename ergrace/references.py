@@ -170,3 +170,89 @@ class References:
         cats = ", ".join(f"{category_label(k)} {format_time(t)}"
                          for k, t in sorted(self.times.items(), key=lambda kv: kv[1]))
         return f"References({self.distance_m:.0f} m: {cats})"
+
+
+# ── boat classes (on-water crews) ────────────────────────────────────────────
+_BOAT_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "data", "reference_times_2k.json")
+
+
+def boat_seats(boat: str) -> int:
+    """Number of rowing seats of a boat class: ``"1x"`` -> 1, ``"4+"`` -> 4, ``"8+"`` -> 8."""
+    m = re.match(r"\s*(\d+)", str(boat))
+    if not m:
+        raise ValueError(f"Cannot read the number of seats from boat class {boat!r}")
+    return int(m.group(1))
+
+
+class BoatReferences:
+    """
+    On-water reference performance per boat class and category.
+
+    Each entry is the 2000 m time of a crew of that class in which *every*
+    seat is of that category (e.g. a ``4x`` of senior women).  The crew's
+    speed advantage over a single is therefore built into the table; mixed
+    crews are combined seat by seat in :class:`ergrace.CrewRace`.
+
+    Parameters
+    ----------
+    distance_m : float
+        Reference distance in metres.
+    times : dict
+        ``{boat class: {category label: time}}``, e.g.
+        ``{"1x": {"Senior M": "6:40", "Senior W": "7:12"}, "8+": {...}}``.
+
+    Examples
+    --------
+    >>> boats = BoatReferences.default()
+    >>> sorted(boats.boats())
+    ['1x', '2x', '4x', '8+']
+    >>> round(boats.speed("8+", "Senior M"), 3)     # 2000 m in 5:20
+    6.25
+    """
+
+    def __init__(self, distance_m: Number, times: Dict[str, Dict[str, TimeLike]]):
+        if distance_m <= 0:
+            raise ValueError("distance_m must be positive")
+        self.distance_m = float(distance_m)
+        self.times: Dict[str, Dict[Tuple[str, str], float]] = {}
+        for boat, cats in times.items():
+            boat_seats(boat)
+            self.times[boat] = {parse_category(lab): parse_time(t) for lab, t in cats.items()}
+
+    @classmethod
+    def default(cls) -> "BoatReferences":
+        """Bundled on-water table (editable defaults, see its description)."""
+        return cls.from_json(_BOAT_DEFAULT_PATH)
+
+    @classmethod
+    def from_json(cls, path: str) -> "BoatReferences":
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        times = {boat: {f"{cat} {gender}": t for gender, cats in genders.items()
+                        for cat, t in cats.items()}
+                 for boat, genders in doc["reference_times"].items()}
+        return cls(doc.get("distance_m", 2000), times)
+
+    def boats(self):
+        return list(self.times)
+
+    def speed(self, boat: str, label: str) -> float:
+        """Reference boat speed [m/s] for a crew of class ``boat``, all ``label``."""
+        if boat not in self.times:
+            raise KeyError(f"No references for boat class {boat!r}. Known: {self.boats()}")
+        key = parse_category(label)
+        if key not in self.times[boat]:
+            known = ", ".join(sorted(category_label(k) for k in self.times[boat]))
+            raise KeyError(f"No {boat} reference for {category_label(key)!r}. Known: {known}")
+        return self.distance_m / self.times[boat][key]
+
+    def label(self, label: str) -> str:
+        return category_label(parse_category(label))
+
+    def table(self):
+        """Reference table as a DataFrame (rows: category, columns: boat class)."""
+        import pandas as pd
+        keys = sorted({k for cats in self.times.values() for k in cats})
+        return pd.DataFrame({boat: [format_time(cats[k]) if k in cats else ""
+                                    for k in keys] for boat, cats in self.times.items()},
+                            index=[category_label(k) for k in keys])

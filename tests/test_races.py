@@ -178,3 +178,70 @@ def test_plots_render(tmp_path):
     m.plot_handicaps(str(tmp_path / "mh.png"))
     m.plot_results(str(tmp_path / "mr.png"))
     assert all((tmp_path / f).exists() for f in ("h.png", "r.png", "mh.png", "mr.png"))
+
+
+# ── crew race ───────────────────────────────────────────────────────────────
+from ergrace import BoatReferences, CrewRace  # noqa: E402
+
+BOATS = BoatReferences(2000, {
+    "1x": {"Senior M": "6:40", "Senior W": "7:12"},
+    "4x": {"Senior M": "5:45", "Senior W": "6:12.6", "Junior M": "6:02.3"},
+})
+
+
+def test_crew_reference_is_mean_of_seat_powers():
+    race = CrewRace(distance=2000, references=BOATS,
+                    crews={"mix": ("4x", {"Senior M": 2, "Senior W": 2})})
+    vm, vw = BOATS.speed("4x", "Senior M"), BOATS.speed("4x", "Senior W")
+    v = ((2 * vm ** 3 + 2 * vw ** 3) / 4) ** (1 / 3)
+    assert race.entries["mix"]["ref_speed"] == pytest.approx(v)
+    # power mean with exponent 3 lies above the arithmetic mean of speeds
+    assert v > (vm + vw) / 2
+
+
+def test_crew_homogeneous_matches_table_and_uniform_effort():
+    race = CrewRace(distance=2000, references=BOATS, crews={
+        "1x": ("1x", "Senior W"), "4x": ("4x", ["Senior M", "Junior M", "Senior M", "Senior W"])})
+    hc = race.handicaps().set_index("Entry")
+    assert hc.loc["1x", "Expected Time (s)"] == pytest.approx(432.0)
+    sigma = 0.66
+    res = {n: 2000 / (race.entries[n]["ref_speed"] * sigma ** (1 / 3)) for n in race.entries}
+    assert np.allclose(race.record(res).results()["Score"], sigma)
+
+
+def test_crew_seat_count_checked():
+    with pytest.raises(ValueError):
+        CrewRace(distance=2000, references=BOATS, crews={"x": ("4x", ["Senior M"] * 3)})
+    with pytest.raises(KeyError):
+        CrewRace(distance=2000, references=BOATS, crews={"x": ("2x", ["Senior M"] * 2)})
+
+
+def test_default_boat_table_loads():
+    race = CrewRace(time="20:00", crews={"a": ("8+", {"Senior M": 4, "Senior W": 4}),
+                                         "b": ("1x", "Master W")})
+    assert len(race.handicaps()) == 2
+
+
+# ── fatigue option ──────────────────────────────────────────────────────────
+def test_fatigue_off_changes_nothing_and_zero_is_off():
+    a = RelayRace(time=1800, teams={"t": TEAM}, references=REFS)
+    b = RelayRace(time=1800, teams={"t": TEAM}, references=REFS, fatigue=0)
+    assert a.entries["t"]["ref_speed"] == b.entries["t"]["ref_speed"]
+
+
+def test_fatigue_at_reference_distance_is_neutral():
+    race = MixedRace(distance=2000, references=REFS, fatigue=5, lanes={1: "Senior M"})
+    assert race.entries["Lane 1"]["ref_speed"] == pytest.approx(V["Senior M"])
+
+
+def test_fatigue_pauls_law_and_team_size():
+    race = MixedRace(distance=8000, references=REFS, fatigue=5, lanes={1: "Senior W"})
+    split = 500 / race.entries["Lane 1"]["ref_speed"]
+    assert split == pytest.approx(500 / V["Senior W"] + 5 * 2)   # two doublings
+    # one rower for 30 min rows longer than each of five -> slower reference
+    r = RelayRace(time=1800, references=REFS, fatigue=5,
+                  teams={"solo": ["Senior W"], "five": ["Senior W"] * 5})
+    assert r.entries["solo"]["ref_speed"] < r.entries["five"]["ref_speed"]
+    r0 = RelayRace(time=1800, references=REFS,
+                   teams={"solo": ["Senior W"], "five": ["Senior W"] * 5})
+    assert r0.entries["solo"]["ref_speed"] == pytest.approx(r0.entries["five"]["ref_speed"])

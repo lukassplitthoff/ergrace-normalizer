@@ -26,7 +26,25 @@ def _clock(x, _pos=None):
     return format_time(x, decimals=0)
 
 
+def _serif_family() -> str:
+    """First installed font of STYLE["font.serif"] (falls back to 'serif')."""
+    from matplotlib import font_manager
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    return next((f for f in STYLE["font.serif"] if f in installed), "serif")
+
+
+def _pin_fonts(fig):
+    """Store the fonts on every text so the figure renders the same after the
+    style context is left (e.g. when Jupyter displays it at the end of a cell)."""
+    from matplotlib.text import Text
+    family = _serif_family()
+    for t in fig.findobj(Text):
+        t.set_fontfamily(family)
+        t.set_math_fontfamily(STYLE["mathtext.fontset"])
+
+
 def _finish(fig, save_path, dpi):
+    _pin_fonts(fig)
     fig.tight_layout()
     if save_path:
         meta = {"CreationDate": None} if str(save_path).endswith(".pdf") else None
@@ -47,7 +65,8 @@ def plot_handicaps(race, save_path: Optional[str] = None, dpi: int = 200):
     df = race.handicaps()
     n = len(df)
     with plt.rc_context(STYLE):
-        fig, ax = plt.subplots(figsize=(7.5, 0.42 * n + 1.5))
+        lab_w = 0.075 * max(len(_entry_label(race, nm)) for nm in df["Entry"])
+        fig, ax = plt.subplots(figsize=(5.5 + lab_w, 0.42 * n + 1.5))
         y = np.arange(n)[::-1]
         if race.fixed_distance:
             finish = (df["Start Offset (s)"] + df["Expected Time (s)"]).max()
@@ -62,8 +81,7 @@ def plot_handicaps(race, save_path: Optional[str] = None, dpi: int = 200):
             ax.axvline(finish, color=INK, lw=1, ls=(0, (3, 2)))
             ax.text(finish, n - 0.35, f"common finish {format_time(finish, 0)}",
                     ha="right", va="bottom", fontsize=8, color=INK2)
-            max_off = df["Start Offset (s)"].max()
-            ax.set_xlim(-0.12 * finish if max_off < 0.1 * finish else 0, finish * 1.02)
+            ax.set_xlim(-0.12 * finish, finish * 1.02)
             ax.xaxis.set_major_formatter(FuncFormatter(_clock))
             ax.set_xlabel("Race clock from first start [min:s]")
             title = f"Staggered start: {race.kind}, {race.format}"
@@ -105,7 +123,11 @@ def plot_results(race, save_path: Optional[str] = None, dpi: int = 200,
     ncols = 3 if teams is not None else 2
     widths = [1.5, 1] + ([0.9] if teams is not None else [])
     with plt.rc_context(STYLE):
-        fig, axes = plt.subplots(1, ncols, figsize=(4.2 * ncols + 1, 0.42 * n + 1.6),
+        lab_w = 0.075 * max(len(_entry_label(race, nm, r))
+                            for nm, r in zip(df["Entry"], df["Rank"]))
+        if teams is not None:
+            lab_w += 0.075 * max(len(str(t)) + 6 for t in teams["Team"])
+        fig, axes = plt.subplots(1, ncols, figsize=(3.6 * ncols + lab_w, 0.42 * n + 1.6),
                                  gridspec_kw={"width_ratios": widths})
         ax1, ax2 = axes[0], axes[1]
         y = np.arange(n)[::-1]

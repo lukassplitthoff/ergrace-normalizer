@@ -1,6 +1,11 @@
 """
 Handicap (pursuit) race format for ergrace.
 
+.. note:: Earlier interface, kept for compatibility. New code should use
+   :class:`ergrace.CrewRace`, which covers the same on-water case with
+   category labels ("Senior W"), fixed time or distance, scoring after the
+   race and the shared charts.
+
 This module adds a second race format on top of the erg power model in
 :mod:`ergrace.normalizer`. In a handicap / pursuit race, boats of different
 *classes* (1x, 2x, 4x, 8+), *genders* (male/female) and *age categories*

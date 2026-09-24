@@ -1,18 +1,15 @@
 # ERGrace Normalizer
 
-A Python package for fair ergometer racing across genders and age categories: **relay races** (a team takes turns on one erg) and **mixed races** (individuals of different categories), over a fixed time or distance. It computes handicaps before the race (staggered starts or target distances) and a composition-fair power score after it.
+A Python package for fair rowing races across genders, age categories and boat classes: **relay races** (a team takes turns on one erg), **mixed races** (individuals of different categories) and **crew races** (mixed crews in different boats), over a fixed time or distance. It computes handicaps before the race (staggered starts or target distances) and a composition-fair power score after it.
 
 ## What It Does
 
-In an ergometer relay, the rowers of a team take turns on **one** ergometer for a fixed time (e.g. 20 or 30 minutes), and the team result is the total distance. Men and women differ systematically in ergometer output, so raw distance is not a fair comparison across team compositions.
+Men and women, juniors, seniors and masters, and single sculls and eights differ systematically in speed, so the raw result is not a fair comparison. **ERGrace** asks *what fraction of their reference power did the athletes of each entry sustain?* It uses this to
 
-**ERGrace Normalizer** answers the question *what fraction of their reference power did the team's rowers sustain?*
+1. set **handicaps before the race**: a staggered start so everyone arrives together, or target distances for timed races;
+2. **score after the race**: the power score `σ = (v / v_ref)³`, where 1 means rowing exactly at reference.
 
-1. From each rower's reference power `P_i` (men / women), it computes the distance `D_ref` a composition-matched team would cover rowing exactly at reference.
-2. It compares the actual distance `D` with that reference.
-3. It reports the **power score** `σ = (D / D_ref)³ = P_team / P_ref`, together with the speed score `s = D / D_ref`.
-
-A score of 0.8 means the rowers sustained 80 % of their reference power. The speed score and the power score always give the same ranking; the power score reports it on the scale of what the athletes actually produce.
+The speed score `v / v_ref` and σ give the same ranking; σ reports it on the scale of what the athletes actually produce (a 7 % speed deficit is a 20 % power deficit).
 
 ## Installation
 
@@ -22,37 +19,29 @@ cd ergrace-normalizer
 pip install -e .
 ```
 
-Requirements: Python 3.7+, numpy, pandas, matplotlib (Pillow optional for GIFs, pytest for the tests).
+Requirements: Python 3.7+, numpy, pandas, matplotlib. Optional: `pip install -e ".[notebooks]"` for the example notebooks, pytest for the tests.
 
-## Quick Start
+## Which Class for Which Race?
 
-```python
-from ergrace import ERGNormalizer
-
-teams = {
-    'Team A': {'n_men': 3, 'n_women': 2, 'distance_m': 6319},
-    'Team B': {'n_men': 2, 'n_women': 3, 'distance_m': 5530},
-    'Team C': {'n_men': 0, 'n_women': 5, 'distance_m': 5819},
-}
-
-normalizer = ERGNormalizer(duration_s=20 * 60)      # 20-minute relay
-normalizer.add_teams_from_dict(teams)
-normalizer.calculate_scores()
-normalizer.print_results()
-normalizer.plot_results('results.png')
-```
-
-## Race Formats: Relay and Mixed
-
-Two race formats are supported, each either over a **fixed time** (the result is a distance) or a **fixed distance** (the result is a time). Athletes are given by category, e.g. `"Senior M"`, `"Junior W"`, `"Master F"` (`"M"` alone means senior men).
-
-| | Relay | Mixed race |
+| Your race | Class | One entry is |
 |---|---|---|
-| Who rows | a team takes turns on **one** ergometer | individuals, one ergometer each |
-| Compared | teams of different composition | athletes of different categories |
-| Before the race, fixed distance | staggered start so all arrive together | staggered start so all arrive together |
-| Before the race, fixed time | target distance / metre credit per team | target distance / metre credit per athlete |
-| After the race | power score σ per team | power score σ per athlete (+ team means) |
+| a team takes turns on **one** ergometer (any team size or mix) | `RelayRace` | a team |
+| individuals of different categories, one ergometer each | `MixedRace` | an athlete (optionally with a team label) |
+| boats of different classes (1x … 8+) with mixed crews, on the water | `CrewRace` | a crew in one boat |
+
+Every class takes exactly one of `time=` (the result is a distance) or `distance=` (the result is a time). Athletes are given by category, e.g. `"Senior M"`, `"Junior W"`, `"Master F"` (`"M"` alone means senior men).
+
+- **Before the race**, `handicaps()` gives a **staggered start** for distance races, so that all entries rowing at the same fraction of their reference power arrive together. For timed races it gives a **target distance** (metre credit) per entry.
+- **After the race**, `record({...})` and `results()` rank entries by the power score σ, the fraction of reference power sustained.
+- `plot_handicaps()` and `plot_results()` draw both.
+
+### Getting started: three notebooks
+
+| Notebook | Shows |
+|---|---|
+| [01_relay_race.ipynb](examples/notebooks/01_relay_race.ipynb) | timed and distance relays; limit cases: score 1 at reference, time vs distance split, team sizes and fatigue, `level`, consistency with the RRC 2026 report |
+| [02_mixed_race.ipynb](examples/notebooks/02_mixed_race.ipynb) | 2000 m staggered start with team ranking, 20-min race with club references; limit cases: one category, σ = 1, only ratios matter, fatigue, label parsing |
+| [03_crew_race.ipynb](examples/notebooks/03_crew_race.ipynb) | 6 km head race with 1x–8+ mixed crews, timed crew race; limit cases: homogeneous crews, why crews and relays combine differently, fatigue, validation |
 
 ### Relay
 
@@ -105,6 +94,28 @@ Staggered start for a 3000 m relay, and a mixed-race result:
 ![Staggered start](examples/races/relay_distance_handicaps.png)
 ![Mixed race results](examples/races/mixed_distance_results.png)
 
+### Crew race (boats on the water)
+
+```python
+from ergrace import CrewRace
+
+head = CrewRace(distance=6000, level=0.7, crews={          # or time="20:00"
+    "Mixed 4x":  ("4x", ["Senior M", "Senior W", "Junior M", "Junior W"]),
+    "Women 2x":  ("2x", ["Senior W", "Senior W"]),
+    "Master 1x": ("1x", "Master M"),
+    "Mixed 8+":  ("8+", {"Senior M": 4, "Senior W": 4}),
+})
+head.print_handicaps(); head.plot_handicaps("start.png")
+head.record({"Mixed 4x": "20:52", "Women 2x": "22:10",
+             "Master 1x": "24:40", "Mixed 8+": "18:20"}).print_results()
+```
+
+The boat references (`BoatReferences.default()`: a 2000 m time per boat class and category, hull advantage included) are **editable placeholders**. Pass your own with `references=BoatReferences(2000, {"1x": {"Senior M": "7:05", ...}, ...})`.
+
+### Fatigue (optional)
+
+References are 2000 m times, applied at any distance assuming constant power. `fatigue=5` applies Paul's law: each athlete's reference split slows by 5 s/500 m per doubling of the distance they actually row. In a distance race everybody rows the same distance, so the start offsets don't change. It matters when athletes row different distances, e.g. **relay teams of different sizes**: a solo rower in a 30-min relay rows five times as far as each member of a five-person team.
+
 ### References
 
 `References.default()` holds 2000 m reference times per category. **Senior** values are the open world records (5:34.7 / 6:21.1). **Junior and master values are placeholders** (+5 % and +8 % in time, the same factors as the on-water table) and should be replaced with the references you want. Only the ratios between categories matter.
@@ -117,19 +128,40 @@ refs = References.default().updated({"Junior W": "6:55.0"})     # override some
 race = MixedRace(time="20:00", references=refs, lanes={...})
 ```
 
-Full examples: [examples/races/relay_race.py](examples/races/relay_race.py), [examples/races/mixed_race.py](examples/races/mixed_race.py).
+Scripts: [relay_race.py](examples/races/relay_race.py), [mixed_race.py](examples/races/mixed_race.py), [crew_race.py](examples/races/crew_race.py).
 
 ### How entries are compared
 
-Each category has a reference speed `v = d_ref / t_ref` (power `P = 2.8 v³`). Assuming every athlete of an entry rows at the same fraction σ of their reference power, the entry's reference speed is:
+Each category has a reference speed `v = d_ref / t_ref` (power `P = 2.8 v³`). Assuming every athlete of an entry rows at the same fraction σ of their reference power, the entry's reference speed is a mean of its athletes' speeds, set by what adds up:
 
-- individual: the category's reference speed;
-- relay with equal **time** shares: the arithmetic mean of the rowers' speeds (distances add);
-- relay with equal **distance** legs: the harmonic mean (times add).
+- `MixedRace`: the athlete's own reference speed;
+- `RelayRace`, equal **time** shares: distances add, so the arithmetic mean of speeds;
+- `RelayRace`, equal **distance** legs: times add, so the harmonic mean;
+- `CrewRace`: all seats pull at once and powers add, so `(mean v³)^(1/3)`, i.e. the mean of seat powers.
 
 With the observed mean speed `v = D / T`, the score is `σ = (v / v_ref)³`. The constant 2.8 cancels. References at 2000 m are applied at other distances assuming constant power: absolute predicted times are optimistic for long races, but ratios, handicaps and rankings are unaffected. `ERGNormalizer` below is the original men/women interface for a fixed-time relay with equal time shares.
 
-## Physics
+## ERGNormalizer (original men/women relay interface)
+
+The first interface of the package, used in the RRC 2026 report: a timed relay with men and women, rowers swapping on the clock. It gives the same scores as `RelayRace(time=..., teams={...: {"Senior M": n_m, "Senior W": n_w}})`.
+
+```python
+from ergrace import ERGNormalizer
+
+teams = {
+    'Team A': {'n_men': 3, 'n_women': 2, 'distance_m': 6319},
+    'Team B': {'n_men': 2, 'n_women': 3, 'distance_m': 5530},
+    'Team C': {'n_men': 0, 'n_women': 5, 'distance_m': 5819},
+}
+
+normalizer = ERGNormalizer(duration_s=20 * 60)      # 20-minute relay
+normalizer.add_teams_from_dict(teams)
+normalizer.calculate_scores()
+normalizer.print_results()
+normalizer.plot_results('results.png')
+```
+
+## Physics (ERGNormalizer and RelayRace)
 
 ### Power from pace
 
@@ -223,7 +255,9 @@ cd examples/RRC2026/publication && latexmk -pdf RRC2026_report.tex
 pytest tests
 ```
 
-## Handicap / Pursuit Race
+## Handicap / Pursuit Race (earlier interface)
+
+> New code should use `CrewRace`, which covers the same on-water case with category labels, fixed time or distance, scoring after the race and the shared charts.
 
 In addition to the erg-format normalizer above, the package can organize an
 **on-water handicap (pursuit) race**: boats of different **classes**
