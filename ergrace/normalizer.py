@@ -1,292 +1,271 @@
 """
-ERG Power Normalizer - Normalize rowing ergometer performance based on team composition.
+ERG Power Normalizer - Normalize rowing ergometer relay results by team composition.
 
-This module provides tools for comparing rowing ergometer team performance
-by normalizing results based on the gender composition of teams.
+Physics summary
+---------------
+The Concept2 monitor converts the flywheel-derived speed ``v`` [m/s] into power
+with the fixed relation
+
+    P = c * v**3,      c = 2.8 W s^3 m^-3   (equivalently 2.8 kg/m).
+
+In a relay the rowers take turns on ONE ergometer, so their *distances* (not
+their powers) add up:  D = sum_i v_i * tau_i.  If every rower of team k holds
+the same fraction ``sigma_k`` of their reference power ``P_i``, each rows at
+speed ``sigma_k**(1/3) * v_i`` and, for equal shares of the race time ``T``,
+
+    D_k = sigma_k**(1/3) * T * vbar_k,     vbar_k = (1/n) sum_i (P_i / c)**(1/3)
+
+so the power score is
+
+    sigma_k = (D_k / D_k_ref)**3 = P_team / P_ref,
+
+with P_team = c (D_k/T)**3 and P_ref = c vbar_k**3 = [(1/n) sum_i P_i**(1/3)]**3,
+i.e. the power mean with exponent 1/3 of the individual reference powers: the
+power at the reference team's mean speed, matching the measured distance.  The
+constant ``c`` cancels exactly.  Dividing P_team by the *arithmetic* mean of the
+reference powers would compare the power at the mean speed with a mean power;
+by the power-mean inequality that penalizes mixed teams.  The arithmetic mean
+is the matching reference only when the observable is summed power, i.e.
+rowers pulling simultaneously in one boat (see :mod:`ergrace.handicap`).
 """
 
 import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
+
+#: Concept2 power-pace constant c in P = c v^3, units W s^3 m^-3 (= kg/m).
+C2_POWER_CONSTANT = 2.8
+
+
+def power_from_speed(speed_m_s: float) -> float:
+    """Ergometer power [W] from monitor speed [m/s]: ``P = c v^3``."""
+    return C2_POWER_CONSTANT * speed_m_s ** 3
+
+
+def speed_from_power(power_w: float) -> float:
+    """Monitor speed [m/s] from power [W]: ``v = (P / c)^(1/3)``."""
+    return (power_w / C2_POWER_CONSTANT) ** (1.0 / 3.0)
+
+
+def power_from_distance_time(distance_m: float, time_s: float) -> float:
+    """Average-speed power [W] for ``distance_m`` rowed in ``time_s``."""
+    return power_from_speed(distance_m / time_s)
+
+
+def split_from_power(power_w: float) -> float:
+    """500 m split [s] corresponding to ``power_w``: ``t500 = 500 m / v``."""
+    return 500.0 / speed_from_power(power_w)
+
+
+def team_reference_power(powers_w) -> float:
+    """Reference power [W] of a relay team: power mean with exponent 1/3.
+
+    ``P_ref = [ (1/n) * sum_i P_i^(1/3) ]^3`` -- the power at the team's mean
+    reference speed.  Equals ``P`` for a homogeneous team and lies below the
+    arithmetic mean for a mixed team.
+    """
+    powers_w = np.asarray(powers_w, dtype=float)
+    if powers_w.size == 0:
+        raise ValueError("Team must have at least one member")
+    if np.any(powers_w <= 0):
+        raise ValueError("Reference powers must be positive")
+    return float(np.mean(np.cbrt(powers_w)) ** 3)
 
 
 class ERGNormalizer:
     """
-    A class for normalizing rowing ergometer performance based on team composition.
+    Normalize ergometer relay results by the gender composition of each team.
 
-    The normalizer calculates reference power based on the gender composition of teams
-    and computes normalized scores that allow fair comparison between teams with
-    different numbers of men and women.
+    Each team rows a relay of duration ``duration_s`` on one ergometer and
+    reports its total distance.  The team's result is compared with the
+    distance a composition-matched reference team would cover if every rower
+    rowed at their gender's reference power for an equal share of the time.
 
-    Reference power values are based on World Rowing ergometer records for age 19-29:
-    - Men: 5:40 for 2K (569.92 W)
-    - Women: 6:40 for 2K (350.00 W)
+    Two equivalent scores are reported:
+
+    * ``Speed Score``  s = D / D_ref           (fraction of reference speed)
+    * ``Score``        sigma = s**3 = P_team / P_ref
+                                               (fraction of reference power)
+
+    Both give the same ranking; ``Score`` is expressed in power, the quantity
+    the athletes actually produce.  See the module docstring for the physics.
 
     Parameters
     ----------
-    ref_power_men : float, optional
-        Reference power for men in Watts (default: 569.92)
-    ref_power_women : float, optional
-        Reference power for women in Watts (default: 350.00)
+    ref_power_men, ref_power_women : float, optional
+        Individual reference powers in W.  Defaults 569.92 W and 350.00 W are
+        the benchmark 2000 m times 5:40 and 6:40 (not world records); use
+        :meth:`from_reference_times` to set references from any distance/time.
+    duration_s : float, optional
+        Relay duration in seconds (default 1200 = 20 min; 1800 for 30 min).
 
     Examples
     --------
-    >>> normalizer = ERGNormalizer()
-    >>> normalizer.add_team('Team A', n_men=3, n_women=2, distance_20min_m=6319)
-    >>> normalizer.add_team('Team B', n_men=2, n_women=3, distance_20min_m=5530)
-    >>> normalizer.calculate_scores()
-    >>> normalizer.print_results()
+    >>> normalizer = ERGNormalizer(duration_s=1200)
+    >>> _ = normalizer.add_team('Team A', n_men=3, n_women=2, distance_m=6319)
+    >>> _ = normalizer.add_team('Team B', n_men=2, n_women=3, distance_m=5530)
+    >>> normalizer.calculate_scores().print_results()  # doctest: +SKIP
     """
 
     def __init__(self, ref_power_men: float = 569.92, ref_power_women: float = 350.0,
                  duration_s: float = 1200):
-        """Initialize the ERGNormalizer with reference power values.
-
-        Parameters
-        ----------
-        duration_s : float, optional
-            Race duration in seconds (default: 1200). Use 1800 for 30-minute races.
-        """
-        self.ref_power_men = ref_power_men
-        self.ref_power_women = ref_power_women
-        self.duration_s = duration_s
+        if ref_power_men <= 0 or ref_power_women <= 0:
+            raise ValueError("Reference powers must be positive")
+        if duration_s <= 0:
+            raise ValueError("duration_s must be positive")
+        self.ref_power_men = float(ref_power_men)
+        self.ref_power_women = float(ref_power_women)
+        self.duration_s = float(duration_s)
         self.teams = {}
         self.results_calculated = False
 
+    @classmethod
+    def from_reference_times(cls, distance_m: float, time_men_s: float,
+                             time_women_s: float, duration_s: float = 1200
+                             ) -> 'ERGNormalizer':
+        """Build a normalizer from reference performances over ``distance_m``.
+
+        Example: 2000 m world records 5:34.7 / 6:21.1 ->
+        ``ERGNormalizer.from_reference_times(2000, 334.7, 381.1, 1800)``.
+        """
+        return cls(ref_power_men=power_from_distance_time(distance_m, time_men_s),
+                   ref_power_women=power_from_distance_time(distance_m, time_women_s),
+                   duration_s=duration_s)
+
+    # ── unit conversions (kept as static methods for backward compatibility) ──
     @staticmethod
     def time2power(time_s: float) -> float:
-        """
-        Convert 2K ergometer time to average power output.
+        """Power [W] for a 2000 m time ``time_s`` [s]: ``P = 2.8 (2000/t)^3``.
 
-        Uses the standard rowing power formula: P = 2.8 / (pace/500m)^3
-
-        Parameters
-        ----------
-        time_s : float
-            Time in seconds for 2000m
-
-        Returns
-        -------
-        float
-            Average power in Watts
-
-        Examples
-        --------
-        >>> ERGNormalizer.time2power(5*60 + 40)  # 5:40 for 2K
+        >>> round(ERGNormalizer.time2power(5*60 + 40), 2)  # 5:40 for 2K
         569.92
         """
-        return 2.8 / (time_s / 2000) ** 3
+        return power_from_distance_time(2000.0, time_s)
 
     @staticmethod
     def distance2power(distance_m: float) -> float:
+        """Power [W] for ``distance_m`` rowed in 20 minutes.
+
+        >>> round(ERGNormalizer.distance2power(6000), 1)
+        350.0
         """
-        Convert 20-minute distance to average power output.
-
-        Parameters
-        ----------
-        distance_m : float
-            Distance covered in 20 minutes (meters)
-
-        Returns
-        -------
-        float
-            Average power in Watts
-
-        Examples
-        --------
-        >>> ERGNormalizer.distance2power(6000)
-        412.5
-        """
-        return 2.8 / (20 * 60 / distance_m) ** 3
+        return power_from_distance_time(distance_m, 20 * 60)
 
     @staticmethod
     def distance_time2power(distance_m: float, duration_s: float) -> float:
-        """
-        Convert distance rowed in a given time to average power output.
+        """Power [W] for ``distance_m`` [m] rowed in ``duration_s`` [s]."""
+        return power_from_distance_time(distance_m, duration_s)
 
-        Parameters
-        ----------
-        distance_m : float
-            Distance covered in meters
-        duration_s : float
-            Race duration in seconds
-
-        Returns
-        -------
-        float
-            Average power in Watts
+    # ── teams ────────────────────────────────────────────────────────────────
+    def add_team(self, name: str, n_men: int, n_women: int,
+                 distance_m: Optional[float] = None, *,
+                 distance_20min_m: Optional[float] = None) -> 'ERGNormalizer':
         """
-        return 2.8 / (duration_s / distance_m) ** 3
-
-    def add_team(self, name: str, n_men: int, n_women: int, distance_20min_m: float) -> 'ERGNormalizer':
-        """
-        Add a team to the comparison.
+        Add a team.
 
         Parameters
         ----------
         name : str
-            Team name
-        n_men : int
-            Number of men on the team
-        n_women : int
-            Number of women on the team
-        distance_20min_m : float
-            Distance covered in 20 minutes (meters)
-
-        Returns
-        -------
-        ERGNormalizer
-            Self for method chaining
-
-        Examples
-        --------
-        >>> normalizer = ERGNormalizer()
-        >>> normalizer.add_team('Team A', 3, 2, 6319)
+            Team name.
+        n_men, n_women : int
+            Number of men and women; each rower is assumed to row an equal
+            share of the relay time.
+        distance_m : float
+            Total team distance in metres covered in ``duration_s``.
+        distance_20min_m : float, optional
+            Deprecated alias of ``distance_m`` (kept for old scripts).
         """
-        self.teams[name] = {
-            'n_men': n_men,
-            'n_women': n_women,
-            'distance_20min_m': distance_20min_m
-        }
+        if distance_m is None:
+            distance_m = distance_20min_m
+        if distance_m is None:
+            raise TypeError("add_team() requires distance_m")
+        if n_men < 0 or n_women < 0 or n_men + n_women == 0:
+            raise ValueError("Team needs a non-negative number of men and women, "
+                             "at least one rower in total")
+        if distance_m <= 0:
+            raise ValueError("distance_m must be positive")
+        self.teams[name] = {'n_men': int(n_men), 'n_women': int(n_women),
+                            'distance_m': float(distance_m)}
         self.results_calculated = False
         return self
 
     def add_teams_from_dict(self, team_dict: Dict[str, Dict]) -> 'ERGNormalizer':
-        """
-        Bulk add teams from a dictionary.
+        """Bulk add teams: ``{name: {'n_men', 'n_women', 'distance_m'}}``.
 
-        Parameters
-        ----------
-        team_dict : dict
-            Dictionary where keys are team names and values are dicts with keys:
-            'n_men', 'n_women', 'distance_20min_m'
-
-        Returns
-        -------
-        ERGNormalizer
-            Self for method chaining
-
-        Examples
-        --------
-        >>> teams = {
-        ...     'Team A': {'n_men': 3, 'n_women': 2, 'distance_20min_m': 6319},
-        ...     'Team B': {'n_men': 2, 'n_women': 3, 'distance_20min_m': 5530}
-        ... }
-        >>> normalizer = ERGNormalizer()
-        >>> normalizer.add_teams_from_dict(teams)
+        The old key ``'distance_20min_m'`` is still accepted.
         """
         for name, data in team_dict.items():
-            self.add_team(
-                name=name,
-                n_men=data['n_men'],
-                n_women=data['n_women'],
-                distance_20min_m=data['distance_20min_m']
-            )
+            dist = data.get('distance_m', data.get('distance_20min_m'))
+            self.add_team(name, data['n_men'], data['n_women'], distance_m=dist)
         return self
 
-    def _calculate_ref_power(self, n_men: int, n_women: int) -> float:
-        """
-        Calculate reference power based on team composition.
-
-        Parameters
-        ----------
-        n_men : int
-            Number of men
-        n_women : int
-            Number of women
-
-        Returns
-        -------
-        float
-            Reference power in Watts
-        """
-        total = n_men + n_women
-        if total == 0:
+    # ── physics ──────────────────────────────────────────────────────────────
+    def _reference_speed(self, n_men: int, n_women: int) -> float:
+        """Mean reference speed [m/s] of the team (equal time shares)."""
+        n = n_men + n_women
+        if n == 0:
             raise ValueError("Team must have at least one member")
-        return (n_men * self.ref_power_men + n_women * self.ref_power_women) / total
+        return (n_men * speed_from_power(self.ref_power_men)
+                + n_women * speed_from_power(self.ref_power_women)) / n
+
+    def _calculate_ref_power(self, n_men: int, n_women: int) -> float:
+        """Team reference power [W]: power mean (exponent 1/3), see module doc."""
+        return power_from_speed(self._reference_speed(n_men, n_women))
 
     def calculate_scores(self) -> 'ERGNormalizer':
-        """
-        Calculate normalized scores for all teams.
-
-        Returns
-        -------
-        ERGNormalizer
-            Self for method chaining
-        """
+        """Compute reference distance, speed score and power score per team."""
         for name, data in self.teams.items():
-            ref_pwr = self._calculate_ref_power(data['n_men'], data['n_women'])
-            actual_pwr = self.distance_time2power(data['distance_20min_m'], self.duration_s)
-            score = actual_pwr / ref_pwr
-
-            self.teams[name]['ref_pwr'] = ref_pwr
-            self.teams[name]['actual_pwr'] = actual_pwr
-            self.teams[name]['score'] = score
-
+            v_ref = self._reference_speed(data['n_men'], data['n_women'])
+            ref_dist = v_ref * self.duration_s
+            speed_score = data['distance_m'] / ref_dist
+            data['ref_distance_m'] = ref_dist
+            data['speed_score'] = speed_score
+            data['ref_pwr'] = power_from_speed(v_ref)
+            data['actual_pwr'] = power_from_distance_time(data['distance_m'],
+                                                          self.duration_s)
+            data['score'] = speed_score ** 3        # == actual_pwr / ref_pwr
         self.results_calculated = True
         return self
 
     def get_results(self) -> pd.DataFrame:
-        """
-        Get results as a pandas DataFrame.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with columns: Team, Composition, Distance (km),
-            Ref Power (W), Actual Power (W), Score, Rank
-
-        Raises
-        ------
-        RuntimeError
-            If calculate_scores() hasn't been called yet
-        """
+        """Results as a DataFrame, ranked by score (full precision)."""
         if not self.results_calculated:
             raise RuntimeError("Call calculate_scores() before getting results")
-
-        data = []
-        for name, team_data in self.teams.items():
-            data.append({
-                'Team': name,
-                'Composition': f"{team_data['n_men']}M/{team_data['n_women']}W",
-                'Distance (km)': team_data['distance_20min_m'] / 1000.0,
-                'Ref Power (W)': round(team_data['ref_pwr'], 1),
-                'Actual Power (W)': round(team_data['actual_pwr'], 1),
-                'Score': round(team_data['score'], 3)
-            })
-
-        df = pd.DataFrame(data)
-        df = df.sort_values('Score', ascending=False).reset_index(drop=True)
-        df['Rank'] = range(1, len(df) + 1)
-
-        # Reorder columns
-        df = df[['Rank', 'Team', 'Composition', 'Distance (km)',
-                 'Ref Power (W)', 'Actual Power (W)', 'Score']]
-
+        rows = [{
+            'Team': name,
+            'Composition': f"{d['n_men']}M/{d['n_women']}W",
+            'Distance (km)': d['distance_m'] / 1000.0,
+            'Ref Distance (km)': d['ref_distance_m'] / 1000.0,
+            'Speed Score': d['speed_score'],
+            'Ref Power (W)': d['ref_pwr'],
+            'Team Power (W)': d['actual_pwr'],
+            'Score': d['score'],
+        } for name, d in self.teams.items()]
+        df = pd.DataFrame(rows).sort_values('Score', ascending=False)
+        df = df.reset_index(drop=True)
+        df.insert(0, 'Rank', range(1, len(df) + 1))
         return df
 
     def print_results(self) -> None:
-        """
-        Print formatted results table to console.
-
-        Raises
-        ------
-        RuntimeError
-            If calculate_scores() hasn't been called yet
-        """
+        """Print a formatted results table."""
         df = self.get_results()
-
-        print("\n" + "=" * 80)
-        print("ERG POWER NORMALIZATION RESULTS".center(80))
-        print("=" * 80)
-        print(f"\nReference Powers: Men = {self.ref_power_men:.1f} W, Women = {self.ref_power_women:.1f} W")
-        print("\n" + df.to_string(index=False))
-        print("\n" + "=" * 80)
-        print("Note: Score = Actual Power / Reference Power")
-        print("Higher score means better performance relative to team composition")
-        print("=" * 80 + "\n")
+        fmt = {'Distance (km)': '{:.3f}'.format, 'Ref Distance (km)': '{:.3f}'.format,
+               'Speed Score': '{:.4f}'.format, 'Ref Power (W)': '{:.1f}'.format,
+               'Team Power (W)': '{:.1f}'.format, 'Score': '{:.4f}'.format}
+        width = 100
+        print("\n" + "=" * width)
+        print("ERG RELAY NORMALIZATION RESULTS".center(width))
+        print("=" * width)
+        print(f"\nIndividual reference powers: men = {self.ref_power_men:.1f} W, "
+              f"women = {self.ref_power_women:.1f} W;  relay duration = "
+              f"{self.duration_s:.0f} s")
+        print("\n" + df.to_string(index=False, formatters=fmt))
+        print("\n" + "=" * width)
+        print("Speed Score = D / D_ref;  Score = Speed Score^3 = Team Power / Ref Power")
+        print("Ref Power = [mean_i P_i^(1/3)]^3 (rowers take turns, so distances add)")
+        print("=" * width + "\n")
 
     def plot_results(self, save_path: Optional[str] = None,
                     figsize: tuple = (10, 6),

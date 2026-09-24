@@ -11,12 +11,11 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     name="ergrace",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="Rowing ergometer power normalization for fair team comparison",
+    author="Lukas J. Splitthoff",
+    description="Composition-fair normalization of rowing ergometer relay results",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/ergrace-normalizer",
+    url="https://github.com/lukassplitthoff/ergrace-normalizer",
     packages=find_packages(),
     package_data={"ergrace": ["data/*.json"]},
     classifiers=[
