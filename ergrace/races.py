@@ -152,11 +152,15 @@ class _Race:
             df = df.sort_values("Start Offset (s)").reset_index(drop=True)
             df["Start Offset"] = [format_time(s, sign=True) for s in df["Start Offset (s)"]]
             df["Expected Time"] = [format_time(s) for s in df["Expected Time (s)"]]
+            df["Gap to Prev (s)"] = df["Start Offset (s)"].diff().fillna(0.0)
             df.insert(0, "Start #", range(1, len(df) + 1))
         else:
             d_max = df["Target Distance (m)"].max()
             df["Credit (m)"] = d_max - df["Target Distance (m)"]
             df = df.sort_values("Target Distance (m)").reset_index(drop=True)
+        numbers = [self.entries[n].get("number") for n in df["Entry"]]
+        if any(x is not None for x in numbers):
+            df.insert(1 if self.fixed_distance else 0, "No.", numbers)
         return df
 
     # ── results ──────────────────────────────────────────────────────────────
@@ -222,11 +226,14 @@ class _Race:
         df = self.handicaps()
         lvl = f"expected level {self.level:.0%} of reference power"
         if self.fixed_distance:
-            cols = ["Start #", "Entry", "Category", "Expected Time", "Start Offset"]
+            cols = ["Start #", "Entry", "Category", "Expected Time", "Start Offset",
+                    "Gap to Prev (s)"]
+            if "No." in df:
+                cols.insert(1, "No.")
             if "Lane" in df:
                 cols.insert(2, "Lane")
             title = f"{self.kind.upper()} {self.format}: STAGGERED START ({lvl})"
-            self._print_table(title, df, cols, {})
+            self._print_table(title, df, cols, {"Gap to Prev (s)": "{:.1f}".format})
         else:
             cols = ["Entry", "Category", "Target Distance (m)", "Credit (m)"]
             title = f"{self.kind.upper()} {self.format}: TARGET DISTANCES ({lvl})"
@@ -248,6 +255,12 @@ class _Race:
         cols = cols[:2] + extra + cols[2:]
         self._print_table(f"{self.kind.upper()} {self.format}: RESULTS "
                           "(Score = fraction of reference power)", df, cols, fmt)
+
+    def print_reference_table(self) -> None:
+        """Print the reference times used by this race."""
+        print(f"\nReference times ({self.refs.distance_m:.0f} m):")
+        print(self.refs.table().to_string())
+        print()
 
     # ── plotting (see ergrace.plotting) ──────────────────────────────────────
     def plot_handicaps(self, save_path: Optional[str] = None, **kw):
@@ -477,9 +490,10 @@ class CrewRace(_Race):
         Race duration -- results are distances.
     crews : dict
         ``{crew: ("4x", ["Senior M", "Senior W", "Junior M", "Junior W"])}``,
-        ``{crew: ("8+", {"Senior M": 4, "Senior W": 4})}`` or
-        ``{crew: {"boat": "2x", "rowers": [...]}}``.  The number of rowers
-        must match the boat class (coxswains are not listed).
+        ``{crew: ("8+", {"Senior M": 4, "Senior W": 4})}``,
+        ``{crew: ("2x", [...], 7)}`` with a boat / bib number, or
+        ``{crew: {"boat": "2x", "rowers": [...], "number": 7}}``.  The number
+        of rowers must match the boat class (coxswains are not listed).
     references : BoatReferences, optional
         On-water reference times per boat class and category (default
         :meth:`BoatReferences.default`, editable placeholder values).
@@ -519,9 +533,9 @@ class CrewRace(_Race):
     def add_crew(self, name: str, spec) -> "CrewRace":
         """Add a crew: ``(boat, rowers)`` or ``{"boat": ..., "rowers": ...}``."""
         if isinstance(spec, Mapping):
-            boat, rowers = spec["boat"], spec["rowers"]
+            boat, rowers, number = spec["boat"], spec["rowers"], spec.get("number")
         else:
-            boat, rowers = spec
+            boat, rowers, number = spec[0], spec[1], (spec[2] if len(spec) > 2 else None)
         if isinstance(rowers, Mapping):
             labels = [lab for lab, k in rowers.items() for _ in range(int(k))]
         elif isinstance(rowers, str):
@@ -539,6 +553,7 @@ class CrewRace(_Race):
         counts = Counter(_abbr_key(self.refs.label(lab)) for lab in labels)
         order = sorted(counts, key=lambda k: (k.split()[1], k.split()[0]))
         crew = " + ".join(f"{counts[k]} {k}" if counts[k] > 1 else k for k in order)
-        self.entries[name] = {"boat": boat, "members": [self.refs.label(l) for l in labels],
+        self.entries[name] = {"boat": boat, "number": number,
+                              "members": [self.refs.label(l) for l in labels],
                               "label": f"{boat}: {crew}", "ref_speed": v_ref}
         return self

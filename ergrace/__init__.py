@@ -9,15 +9,14 @@ Pick the class that matches the race:
 
 Each takes ``time=`` or ``distance=``, computes handicaps before the race
 (staggered starts or target distances) and a power score after it.
-:class:`ERGNormalizer` (men/women timed relay) and :class:`HandicapRace`
-(on-water staggered start) are the earlier interfaces, kept for compatibility.
+:class:`ERGNormalizer` is the original men/women timed-relay interface used in
+the RRC 2026 report; it gives the same scores as :class:`RelayRace`.
 """
 
 from .normalizer import ERGNormalizer
-from .handicap import HandicapRace
 from .references import BoatReferences, References, format_time, parse_time
 from .races import CrewRace, MixedRace, RelayRace
 
 __version__ = "0.2.0"
-__all__ = ["RelayRace", "MixedRace", "CrewRace", "References", "BoatReferences", "ERGNormalizer", "HandicapRace",
+__all__ = ["RelayRace", "MixedRace", "CrewRace", "References", "BoatReferences", "ERGNormalizer",
            "parse_time", "format_time"]

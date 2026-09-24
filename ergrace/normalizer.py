@@ -26,7 +26,7 @@ constant ``c`` cancels exactly.  Dividing P_team by the *arithmetic* mean of the
 reference powers would compare the power at the mean speed with a mean power;
 by the power-mean inequality that penalizes mixed teams.  The arithmetic mean
 is the matching reference only when the observable is summed power, i.e.
-rowers pulling simultaneously in one boat (see :mod:`ergrace.handicap`).
+rowers pulling simultaneously in one boat (see :class:`ergrace.CrewRace`).
 """
 
 import os

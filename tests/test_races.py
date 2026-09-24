@@ -245,3 +245,19 @@ def test_fatigue_pauls_law_and_team_size():
     r0 = RelayRace(time=1800, references=REFS,
                    teams={"solo": ["Senior W"], "five": ["Senior W"] * 5})
     assert r0.entries["solo"]["ref_speed"] == pytest.approx(r0.entries["five"]["ref_speed"])
+
+
+def test_crew_race_reproduces_former_handicaprace_numbers():
+    """Regression: the removed HandicapRace gave these times for Rådasjön runt 2026."""
+    race = CrewRace(distance=6000, crews={
+        "mix 8+": ("8+", {"Senior M": 4, "Senior W": 4}, 2),
+        "M 1x": ("1x", "Senior M", 9),
+        "jun 2x": ("2x", ["Junior W", "Junior M"], 1),
+        "mix 2x": ("2x", ["Senior M", "Senior W"], 3)})
+    hc = race.handicaps().set_index("Entry")
+    assert hc.loc["mix 8+", "Expected Time"] == "16:35.5"
+    assert hc.loc["M 1x", "Expected Time"] == "20:00.0"
+    assert hc.loc["jun 2x", "Expected Time"] == "20:08.6"
+    assert hc.loc["mix 2x", "Expected Time"] == "19:11.0"
+    assert hc.loc["mix 8+", "No."] == 2
+    assert hc.loc["M 1x", "Gap to Prev (s)"] == pytest.approx(8.6, abs=0.05)
