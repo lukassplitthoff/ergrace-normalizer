@@ -1,6 +1,6 @@
 {
   "distance_m": 2000,
-  "description": "On-water 2 km reference times per boat class / gender / age category, used by HandicapRace to predict finish times and stagger starts. These are *boat* reference times (an 8+ is faster than a 1x), not static-erg scores. Values are coherent, plausible DEFAULTS intended to be edited to match your club/event. Times are 'M:SS' or 'M:SS.s'. Default baselines (senior male): 1x 6:40, 2x 6:10, 4x 5:45, 8+ 5:20; women approx +8% slower; junior approx +5% vs senior; master approx +8% vs senior.",
+  "description": "On-water 2 km reference times per boat class / gender / age category, used by CrewRace (BoatReferences.default()) to predict finish times and stagger starts. These are *boat* reference times (an 8+ is faster than a 1x), not static-erg scores. Values are coherent, plausible DEFAULTS intended to be edited to match your club/event. Times are 'M:SS' or 'M:SS.s'. Default baselines (senior male): 1x 6:40, 2x 6:10, 4x 5:45, 8+ 5:20; women approx +8% slower; junior approx +5% vs senior; master approx +8% vs senior.",
   "categories": ["junior", "senior", "master"],
   "genders": ["male", "female"],
   "boat_classes": ["1x", "2x", "4x", "8+"],
