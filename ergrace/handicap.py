@@ -86,11 +86,11 @@ class HandicapRace:
     Examples
     --------
     >>> race = HandicapRace(distance_km=6)
-    >>> race.add_crew('Crew 1', '1x', [{'gender': 'male', 'category': 'senior'}])
-    >>> race.add_crew('Crew 2', '8+',
+    >>> _ = race.add_crew('Crew 1', '1x', [{'gender': 'male', 'category': 'senior'}])
+    >>> _ = race.add_crew('Crew 2', '8+',
     ...               [{'gender': 'male', 'category': 'senior', 'count': 3},
     ...                {'gender': 'female', 'category': 'senior', 'count': 5}])
-    >>> race.calculate().print_results()
+    >>> race.calculate().print_results()  # doctest: +SKIP
     """
 
     def __init__(self, distance_km: float, reference_path: Optional[str] = None):

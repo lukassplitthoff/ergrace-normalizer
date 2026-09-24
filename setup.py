@@ -10,7 +10,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="ergrace",
-    version="0.1.0",
+    version="0.2.0",
     author="Lukas J. Splitthoff",
     description="Composition-fair normalization of rowing ergometer relay results",
     long_description=long_description,

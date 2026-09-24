@@ -136,6 +136,7 @@ Thumbs.db
 # Project specific
 *.png
 !examples/*.png
+!examples/races/*.png
 
 # latex
 *.bbl

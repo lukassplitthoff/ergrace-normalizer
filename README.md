@@ -1,6 +1,6 @@
 # ERGrace Normalizer
 
-A Python package for normalizing rowing ergometer relay results by team composition. It allows a fair comparison between teams with different numbers of men and women.
+A Python package for fair ergometer racing across genders and age categories: **relay races** (a team takes turns on one erg) and **mixed races** (individuals of different categories), over a fixed time or distance. It computes handicaps before the race (staggered starts or target distances) and a composition-fair power score after it.
 
 ## What It Does
 
@@ -41,6 +41,93 @@ normalizer.calculate_scores()
 normalizer.print_results()
 normalizer.plot_results('results.png')
 ```
+
+## Race Formats: Relay and Mixed
+
+Two race formats are supported, each either over a **fixed time** (the result is a distance) or a **fixed distance** (the result is a time). Athletes are given by category, e.g. `"Senior M"`, `"Junior W"`, `"Master F"` (`"M"` alone means senior men).
+
+| | Relay | Mixed race |
+|---|---|---|
+| Who rows | a team takes turns on **one** ergometer | individuals, one ergometer each |
+| Compared | teams of different composition | athletes of different categories |
+| Before the race, fixed distance | staggered start so all arrive together | staggered start so all arrive together |
+| Before the race, fixed time | target distance / metre credit per team | target distance / metre credit per athlete |
+| After the race | power score σ per team | power score σ per athlete (+ team means) |
+
+### Relay
+
+```python
+from ergrace import RelayRace
+
+relay = RelayRace(time="30:00", teams={            # or distance=3000
+    "Team 1": ["Junior M", "Senior W", "Senior M"],
+    "Team 2": ["Junior M", "Senior W", "Senior W"],
+    "Team 3": {"Senior W": 3},                     # counts work too
+}, level=0.7)
+
+relay.print_handicaps()        # fixed time: target distance and credit per team
+relay.plot_handicaps("handicaps.png")
+
+relay.record({"Team 1": 8480, "Team 2": 8120, "Team 3": 7710})   # metres
+relay.print_results()
+relay.plot_results("results.png")
+```
+
+`split` sets how a team shares the work: `"time"` (swap on the clock; default for timed races) or `"distance"` (equal legs, e.g. 3 × 1000 m; default for distance races). For a fixed-distance relay, `record` takes times: `{"Team 1": "10:02.4", ...}`.
+
+### Mixed race
+
+```python
+from ergrace import MixedRace
+
+race = MixedRace(distance=2000, level=0.7, lanes={   # or time="20:00"
+    1: ("Anna", "Junior W", "Mölndal"),              # (name, category, team)
+    2: ("Erik", "Senior M", "Mölndal"),
+    3: "Master W",                                   # just a category
+})
+race.print_handicaps()         # fixed distance: who starts when
+race.plot_handicaps("start.png")
+
+race.record({"Anna": "7:48.0", 2: "6:52.5", 3: "8:06.2"})        # by name or lane
+race.print_results()
+race.print_team_results()      # mean power score per team, if teams are given
+race.plot_results("results.png")
+```
+
+### Handicaps
+
+- **Fixed distance:** the slowest entry starts first; everyone else starts later by the difference in expected time, so all entries rowing at the same fraction of their reference power **arrive together**. The first across the line wins.
+- **Fixed time:** each entry gets a target distance; the credit is the metres to add to its result.
+- `level` is the expected fraction of reference power (default 1.0). It scales the start offsets and targets (club crews typically row at 0.6–0.8 of world-record power) but not their order.
+
+Staggered start for a 3000 m relay, and a mixed-race result:
+
+![Staggered start](examples/races/relay_distance_handicaps.png)
+![Mixed race results](examples/races/mixed_distance_results.png)
+
+### References
+
+`References.default()` holds 2000 m reference times per category. **Senior** values are the open world records (5:34.7 / 6:21.1). **Junior and master values are placeholders** (+5 % and +8 % in time, the same factors as the on-water table) and should be replaced with the references you want. Only the ratios between categories matter.
+
+```python
+from ergrace import References
+refs = References(2000, {"Senior M": "6:30", "Senior W": "7:25",
+                         "Junior M": "6:45", "Junior W": "7:45"})
+refs = References.default().updated({"Junior W": "6:55.0"})     # override some
+race = MixedRace(time="20:00", references=refs, lanes={...})
+```
+
+Full examples: [examples/races/relay_race.py](examples/races/relay_race.py), [examples/races/mixed_race.py](examples/races/mixed_race.py).
+
+### How entries are compared
+
+Each category has a reference speed `v = d_ref / t_ref` (power `P = 2.8 v³`). Assuming every athlete of an entry rows at the same fraction σ of their reference power, the entry's reference speed is:
+
+- individual: the category's reference speed;
+- relay with equal **time** shares: the arithmetic mean of the rowers' speeds (distances add);
+- relay with equal **distance** legs: the harmonic mean (times add).
+
+With the observed mean speed `v = D / T`, the score is `σ = (v / v_ref)³`. The constant 2.8 cancels. References at 2000 m are applied at other distances assuming constant power: absolute predicted times are optimistic for long races, but ratios, handicaps and rankings are unaffected. `ERGNormalizer` below is the original men/women interface for a fixed-time relay with equal time shares.
 
 ## Physics
 

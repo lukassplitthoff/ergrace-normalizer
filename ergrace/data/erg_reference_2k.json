@@ -1,0 +1,9 @@
+{
+  "distance_m": 2000,
+  "description": "Static-erg (Concept2 RowErg) 2000 m reference times per category, used by RelayRace and MixedRace. Senior values are the open-category world records (men O. Zeidler 5:34.7, women B. Mooney 6:21.1; Concept2 records database, March 2026). Junior and master values are PLACEHOLDERS derived with the same factors as the on-water table (junior +5 %, master +8 % in time vs senior); replace them with the reference you want (e.g. Concept2 age-group records or your club's benchmarks). Only ratios between categories affect handicaps and rankings.",
+  "reference_times": {
+    "senior": {"M": "5:34.7", "W": "6:21.1"},
+    "junior": {"M": "5:51.4", "W": "6:40.2"},
+    "master": {"M": "6:01.5", "W": "6:51.6"}
+  }
+}
